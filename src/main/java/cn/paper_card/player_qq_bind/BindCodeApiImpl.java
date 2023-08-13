@@ -23,6 +23,10 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
     private final @NotNull PlayerQqBind plugin;
 
+    private int playerCount = -1;
+
+    private static final long MAX_ALIVE_TIME = 2 * 60 * 1000L;
+
     private @NotNull DatabaseConnection getConnection() throws Exception {
         if (this.connection == null) {
             this.connection = this.plugin.getDatabaseApi().connectUnimportant();
@@ -33,6 +37,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
     private @NotNull BindCodeTable getTable() throws Exception {
         if (this.table == null) {
             this.table = new BindCodeTable(this.getConnection().getConnection());
+            this.playerCount = this.table.queryCount();
         }
         return this.table;
     }
@@ -59,6 +64,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
             final int updated = t.updateByUuid(info);
             if (updated == 0) {
                 final int inserted = t.insert(info);
+                this.playerCount += inserted;
                 if (inserted != 1) throw new Exception("插入了%d条数据！".formatted(inserted));
                 return code;
             }
@@ -77,16 +83,38 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
             if (size == 0) return null;
             if (size == 1) {
                 final int deleted = t.deleteByCode(code);
+
+                this.playerCount -= deleted;
+
                 if (deleted != 1) throw new Exception("删除了%d条数据！".formatted(deleted));
+
 
                 final QqBindApi.BindCodeInfo info = list.get(0);
 
                 // 判断验证码是否过期
                 final long delta = System.currentTimeMillis() - info.time();
-                if (delta > 2 * 60 * 1000L) return null;
+                if (delta > MAX_ALIVE_TIME) return null;
                 return info;
             }
             throw new Exception("根据一个验证码查询到%d条数据！".formatted(size));
+        }
+    }
+
+    @Override
+    public int cleanOutdated() throws Exception {
+        final long begin = System.currentTimeMillis() - MAX_ALIVE_TIME;
+        synchronized (this) {
+            final BindCodeTable t = this.getTable();
+            final int deleted = t.deleteTimeBefore(begin);
+            this.playerCount -= deleted;
+            return deleted;
+        }
+    }
+
+    @Override
+    public int getPlayerCount() {
+        synchronized (this) {
+            return this.playerCount;
         }
     }
 
@@ -123,6 +151,10 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
         private final PreparedStatement statementDeleteByCode;
 
+        private final PreparedStatement statementQueryPlayerCount;
+
+        private final PreparedStatement statementDeleteTimeBefore;
+
         private final static String NAME = "qq_bind_code";
 
 
@@ -145,6 +177,12 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
                 this.statementDeleteByCode = connection.prepareStatement
                         ("DELETE FROM %s WHERE code=?".formatted(NAME));
+
+                this.statementDeleteTimeBefore = connection.prepareStatement
+                        ("DELETE FROM %s WHERE time<?".formatted(NAME));
+
+                this.statementQueryPlayerCount = connection.prepareStatement
+                        ("SELECT count(*) FROM %s".formatted(NAME));
 
             } catch (SQLException e) {
                 try {
@@ -225,9 +263,36 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
             return this.parse(resultSet);
         }
 
+        int queryCount() throws SQLException {
+            final ResultSet resultSet = this.statementQueryPlayerCount.executeQuery();
+
+            int c = -1;
+            try {
+                while (resultSet.next()) {
+                    c = resultSet.getInt(1);
+                }
+            } catch (SQLException e) {
+                try {
+                    resultSet.close();
+                } catch (SQLException ignored) {
+                }
+            }
+
+            resultSet.close();
+
+
+            return c;
+        }
+
         int deleteByCode(int code) throws SQLException {
             final PreparedStatement ps = this.statementDeleteByCode;
             ps.setInt(1, code);
+            return ps.executeUpdate();
+        }
+
+        int deleteTimeBefore(long time) throws SQLException {
+            final PreparedStatement ps = this.statementDeleteTimeBefore;
+            ps.setLong(1, time);
             return ps.executeUpdate();
         }
     }
