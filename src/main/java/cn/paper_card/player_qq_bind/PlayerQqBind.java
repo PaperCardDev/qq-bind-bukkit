@@ -268,6 +268,8 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
             return reply;
         }
 
+        this.getLogger().info("%sQQ绑定 {玩家: %s, QQ: %d}".formatted((added ? "添加" : "更新"), bindCodeInfo.name(), qq));
+
         reply.add("%sQQ绑定成功\n游戏名：%s\n快连接服务器试试叭~".formatted((added ? "添加" : "更新"), bindCodeInfo.name()));
 
         // 清理过期验证码
@@ -284,7 +286,7 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
             this.getLogger().info("清理了%d个过期的验证码".formatted(deleted));
         }
 
-        return null;
+        return reply;
     }
 
     @NotNull Permission addPermission(@NotNull String name) {
