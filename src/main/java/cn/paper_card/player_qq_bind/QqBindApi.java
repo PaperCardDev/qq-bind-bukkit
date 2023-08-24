@@ -36,9 +36,11 @@ public interface QqBindApi {
     }
 
     interface QqBot {
+        void sendAtMessage(long qq, @NotNull String message);
     }
 
     interface AutoQqBind {
+        // 实现要求：仅仅是获取玩家可能的QQ号码
         long tryBind(@NotNull UUID uuid, @NotNull String name);
     }
 

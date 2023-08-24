@@ -169,7 +169,26 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
         // 尝试自动绑定
         if (autoQqBind != null) {
             final long qq = autoQqBind.tryBind(id, event.getName());
+
             if (qq > 0) {
+                boolean added;
+                try {
+                    added = this.addOrUpdateByUuid(id, qq);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    event.setLoginResult(AsyncPlayerPreLoginEvent.Result.KICK_OTHER);
+                    event.kickMessage(Component.text(e.toString()));
+                    return 0;
+                }
+
+                getLogger().info("自动%s了QQ绑定：{name: %s, qq: %d}".formatted((added ? "添加" : "更新"), event.getName(), qq));
+
+                if (qqBot != null) {
+                    qqBot.sendAtMessage(qq, "已为你自动%s了QQ绑定，游戏名：%s，如果不是你在连接服务器，请及时联系管理员".formatted(
+                            (added ? "添加" : "更新"), event.getName()
+                    ));
+                }
+
                 event.setLoginResult(AsyncPlayerPreLoginEvent.Result.ALLOWED);
                 return qq;
             }
