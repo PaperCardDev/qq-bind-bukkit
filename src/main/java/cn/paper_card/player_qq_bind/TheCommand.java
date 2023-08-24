@@ -3,7 +3,9 @@ package cn.paper_card.player_qq_bind;
 import cn.paper_card.mc_command.TheMcCommand;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -28,6 +30,7 @@ class TheCommand extends TheMcCommand.HasSub {
         this.permission = this.plugin.addPermission("qq-bind.command");
 
         this.addSubCommand(new Set());
+        this.addSubCommand(new Get());
     }
 
     @Override
@@ -54,6 +57,16 @@ class TheCommand extends TheMcCommand.HasSub {
         }
 
         return null;
+    }
+
+    private @NotNull String getPlayerName(@NotNull UUID uuid) {
+        for (final OfflinePlayer offlinePlayer : plugin.getServer().getOfflinePlayers()) {
+            if (offlinePlayer.getUniqueId().equals(uuid)) {
+                final String name = offlinePlayer.getName();
+                if (name != null) return name;
+            }
+        }
+        return uuid.toString();
     }
 
     private class Set extends TheMcCommand {
@@ -154,6 +167,103 @@ class TheCommand extends TheMcCommand.HasSub {
                 return list;
             }
 
+            return null;
+        }
+    }
+
+    private class Get extends TheMcCommand {
+
+        private final @NotNull Permission permission;
+
+        protected Get() {
+            super("get");
+            this.permission = plugin.addPermission(TheCommand.this.permission.getName() + ".get");
+        }
+
+        @Override
+        protected boolean canNotExecute(@NotNull CommandSender commandSender) {
+            return !commandSender.hasPermission(this.permission);
+        }
+
+        @Override
+        public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            // <玩家名或UUID>
+            final String argPlayer = strings.length > 0 ? strings[0] : null;
+
+            if (argPlayer == null) {
+                sendError(commandSender, "你必须指定参数：玩家名或UUID！");
+                return true;
+            }
+
+            final UUID uuid = parsePlayerArg(argPlayer);
+
+            if (uuid == null) {
+                sendError(commandSender, "找不到该玩家：%s".formatted(argPlayer));
+                return true;
+            }
+
+            final String name = getPlayerName(uuid);
+
+            final QqBindApi.BindInfo bindInfo;
+
+            try {
+                bindInfo = plugin.queryByUuid(uuid);
+            } catch (Exception e) {
+                e.printStackTrace();
+                sendError(commandSender, e.toString());
+                return true;
+            }
+
+            if (bindInfo == null) {
+                commandSender.sendMessage(Component.text("该玩家[%s]没有绑定QQ！".formatted(name)));
+                return true;
+            }
+
+            final String uuidStr = bindInfo.uuid().toString();
+            final String qqStr = "%d".formatted(bindInfo.qq());
+
+            commandSender.sendMessage(Component.text()
+
+                    .append(Component.text("QQ绑定信息："))
+                    .append(Component.newline())
+
+                    .append(Component.text("玩家名: "))
+                    .append(Component.text(name).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
+                            .clickEvent(ClickEvent.copyToClipboard(name)))
+                    .append(Component.newline())
+
+                    .append(Component.text("UUID: "))
+                    .append(Component.text(uuidStr).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
+                            .clickEvent(ClickEvent.copyToClipboard(uuidStr)))
+                    .append(Component.newline())
+
+                    .append(Component.text("QQ: "))
+                    .append(Component.text(qqStr).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
+                            .clickEvent(ClickEvent.copyToClipboard(qqStr)))
+
+                    .build());
+
+            return true;
+        }
+
+        @Override
+        public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            if (strings.length == 1) {
+                final String arg = strings[0];
+
+                final LinkedList<String> list = new LinkedList<>();
+
+                if (arg.isEmpty()) list.add("<玩家名或UUID>");
+
+                for (final OfflinePlayer offlinePlayer : plugin.getServer().getOfflinePlayers()) {
+
+                    final String name = offlinePlayer.getName();
+                    if (name == null) continue;
+
+                    if (name.startsWith(arg)) list.add(name);
+                }
+                return list;
+            }
             return null;
         }
     }
