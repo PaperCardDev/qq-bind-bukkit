@@ -3,9 +3,6 @@ package cn.paper_card.player_qq_bind;
 import cn.paper_card.mc_command.TheMcCommand;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -31,15 +28,12 @@ class TheCommand extends TheMcCommand.HasSub {
 
         this.addSubCommand(new Set());
         this.addSubCommand(new Get());
+        this.addSubCommand(new ByQq());
     }
 
     @Override
     protected boolean canNotExecute(@NotNull CommandSender commandSender) {
         return !commandSender.hasPermission(this.permission);
-    }
-
-    private static void sendError(@NotNull CommandSender sender, @NotNull String error) {
-        sender.sendMessage(Component.text(error).color(NamedTextColor.DARK_RED));
     }
 
     private @Nullable UUID parsePlayerArg(@NotNull String arg) {
@@ -91,19 +85,19 @@ class TheCommand extends TheMcCommand.HasSub {
             final String argQq = strings.length > 1 ? strings[1] : null;
 
             if (argPlayer == null) {
-                sendError(commandSender, "你必须指定参数：玩家名或UUID！");
+                plugin.sendError(commandSender, "你必须指定参数：玩家名或UUID！");
                 return true;
             }
 
             if (argQq == null) {
-                sendError(commandSender, "你必须指定参数：QQ号码！");
+                plugin.sendError(commandSender, "你必须指定参数：QQ号码！");
                 return true;
             }
 
             final UUID uuid = parsePlayerArg(argPlayer);
 
             if (uuid == null) {
-                sendError(commandSender, "找不到该玩家：%s".formatted(argPlayer));
+                plugin.sendError(commandSender, "找不到该玩家：%s".formatted(argPlayer));
                 return true;
             }
 
@@ -112,35 +106,58 @@ class TheCommand extends TheMcCommand.HasSub {
             try {
                 qq = Long.parseLong(argQq);
             } catch (NumberFormatException ignored) {
-                sendError(commandSender, "不正确的QQ号码：%s".formatted(argQq));
+                plugin.sendError(commandSender, "不正确的QQ号码：%s".formatted(argQq));
                 return true;
             }
 
+            plugin.getTaskScheduler().runTaskAsynchronously(() -> {
 
-            final boolean added;
+                final QqBindApi.BindInfo bindInfo;
 
-            try {
-                added = plugin.addOrUpdateByUuid(uuid, qq);
-            } catch (Exception e) {
-                sendError(commandSender, e.toString());
-                return true;
-            }
+                if (qq > 0) {
+                    try {
+                        bindInfo = plugin.queryByQq(qq);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        plugin.sendError(commandSender, e.toString());
+                        return;
+                    }
 
-            final OfflinePlayer offlinePlayer = plugin.getServer().getOfflinePlayer(uuid);
+                    if (bindInfo != null) {
+                        final OfflinePlayer offlinePlayer = plugin.getServer().getOfflinePlayer(bindInfo.uuid());
+                        String name = offlinePlayer.getName();
+                        if (name == null) name = offlinePlayer.getUniqueId().toString();
+                        plugin.sendWarning(commandSender, "该QQ[%d]已经绑定了%s".formatted(qq, name));
+                        return;
+                    }
+                }
 
-            final TextComponent.Builder text = Component.text();
-            text.append(Component.text("%s了QQ绑定：".formatted(added ? "添加" : "更新")));
-            text.append(Component.newline());
+                final boolean added;
 
-            text.append(Component.text("玩家名: %s".formatted(offlinePlayer.getName())));
-            text.append(Component.newline());
+                try {
+                    added = plugin.addOrUpdateByUuid(uuid, qq);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    plugin.sendError(commandSender, e.toString());
+                    return;
+                }
 
-            text.append(Component.text("UUID: %s".formatted(offlinePlayer.getUniqueId())));
-            text.append(Component.newline());
+                final OfflinePlayer offlinePlayer = plugin.getServer().getOfflinePlayer(uuid);
 
-            text.append(Component.text("QQ: %d".formatted(qq)));
+                final TextComponent.Builder text = Component.text();
+                text.append(Component.text("%s了QQ绑定：".formatted(added ? "添加" : "更新")));
+                text.append(Component.newline());
 
-            commandSender.sendMessage(text.build());
+                text.append(Component.text("玩家名: %s".formatted(offlinePlayer.getName())));
+                text.append(Component.newline());
+
+                text.append(Component.text("UUID: %s".formatted(offlinePlayer.getUniqueId())));
+                text.append(Component.newline());
+
+                text.append(Component.text("QQ: %d".formatted(qq)));
+
+                plugin.sendInfo(commandSender, text.build());
+            });
 
             return true;
         }
@@ -191,57 +208,40 @@ class TheCommand extends TheMcCommand.HasSub {
             final String argPlayer = strings.length > 0 ? strings[0] : null;
 
             if (argPlayer == null) {
-                sendError(commandSender, "你必须指定参数：玩家名或UUID！");
+                plugin.sendError(commandSender, "你必须指定参数：玩家名或UUID！");
                 return true;
             }
 
             final UUID uuid = parsePlayerArg(argPlayer);
 
             if (uuid == null) {
-                sendError(commandSender, "找不到该玩家：%s".formatted(argPlayer));
+                plugin.sendError(commandSender, "找不到该玩家：%s".formatted(argPlayer));
                 return true;
             }
 
-            final String name = getPlayerName(uuid);
+            plugin.getTaskScheduler().runTaskAsynchronously(() -> {
+                final String name = getPlayerName(uuid);
 
-            final QqBindApi.BindInfo bindInfo;
+                final QqBindApi.BindInfo bindInfo;
 
-            try {
-                bindInfo = plugin.queryByUuid(uuid);
-            } catch (Exception e) {
-                e.printStackTrace();
-                sendError(commandSender, e.toString());
-                return true;
-            }
+                try {
+                    bindInfo = plugin.queryByUuid(uuid);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    plugin.sendError(commandSender, e.toString());
+                    return;
+                }
 
-            if (bindInfo == null) {
-                commandSender.sendMessage(Component.text("该玩家[%s]没有绑定QQ！".formatted(name)));
-                return true;
-            }
+                if (bindInfo == null) {
+                    plugin.sendWarning(commandSender, "该玩家[%s]没有绑定QQ！".formatted(name));
+                    return;
+                }
 
-            final String uuidStr = bindInfo.uuid().toString();
-            final String qqStr = "%d".formatted(bindInfo.qq());
+                final String uuidStr = bindInfo.uuid().toString();
+                final String qqStr = "%d".formatted(bindInfo.qq());
 
-            commandSender.sendMessage(Component.text()
-
-                    .append(Component.text("QQ绑定信息："))
-                    .append(Component.newline())
-
-                    .append(Component.text("玩家名: "))
-                    .append(Component.text(name).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
-                            .clickEvent(ClickEvent.copyToClipboard(name)))
-                    .append(Component.newline())
-
-                    .append(Component.text("UUID: "))
-                    .append(Component.text(uuidStr).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
-                            .clickEvent(ClickEvent.copyToClipboard(uuidStr)))
-                    .append(Component.newline())
-
-                    .append(Component.text("QQ: "))
-                    .append(Component.text(qqStr).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
-                            .clickEvent(ClickEvent.copyToClipboard(qqStr)))
-
-                    .build());
+                plugin.sendInfo(commandSender, plugin.buildInfoComponent(name, uuidStr, qqStr));
+            });
 
             return true;
         }
@@ -263,6 +263,77 @@ class TheCommand extends TheMcCommand.HasSub {
                     if (name.startsWith(arg)) list.add(name);
                 }
                 return list;
+            }
+            return null;
+        }
+    }
+
+    private class ByQq extends TheMcCommand {
+
+        private final @NotNull Permission permission;
+
+        protected ByQq() {
+            super("by-qq");
+            this.permission = plugin.addPermission(TheCommand.this.permission.getName() + "." + this.getLabel());
+        }
+
+        @Override
+        protected boolean canNotExecute(@NotNull CommandSender commandSender) {
+            return !commandSender.hasPermission(this.permission);
+        }
+
+        @Override
+        public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            final String argQq = strings.length > 0 ? strings[0] : null;
+            if (argQq == null) {
+                plugin.sendError(commandSender, "你必须提供参数：QQ号码");
+                return true;
+            }
+
+            final long qq;
+
+            try {
+                qq = Long.parseLong(argQq);
+            } catch (NumberFormatException e) {
+                plugin.sendError(commandSender, "%s 不是正确的QQ号码".formatted(argQq));
+                return true;
+            }
+
+            plugin.getTaskScheduler().runTaskAsynchronously(() -> {
+                final QqBindApi.BindInfo bindInfo;
+
+                try {
+                    bindInfo = plugin.queryByQq(qq);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    plugin.sendError(commandSender, e.toString());
+                    return;
+                }
+
+                if (bindInfo == null) {
+                    plugin.sendWarning(commandSender, "QQ[%d]没有绑定UUID".formatted(qq));
+                    return;
+                }
+
+                final OfflinePlayer offlinePlayer = plugin.getServer().getOfflinePlayer(bindInfo.uuid());
+                String name = offlinePlayer.getName();
+                if (name == null) name = offlinePlayer.getUniqueId().toString();
+
+                plugin.sendInfo(commandSender, plugin.buildInfoComponent(name, offlinePlayer.getUniqueId().toString(), argQq));
+            });
+
+            return true;
+        }
+
+        @Override
+        public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            if (strings.length == 1) {
+                final String argQq = strings[0];
+                if (argQq.isEmpty()) {
+                    final LinkedList<String> list = new LinkedList<>();
+                    list.add("<QQ>");
+                    return list;
+                }
             }
             return null;
         }

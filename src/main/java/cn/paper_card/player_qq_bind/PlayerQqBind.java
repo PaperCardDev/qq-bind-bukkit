@@ -2,9 +2,15 @@ package cn.paper_card.player_qq_bind;
 
 import cn.paper_card.database.DatabaseApi;
 import cn.paper_card.database.DatabaseConnection;
+import com.github.Anon8281.universalScheduler.UniversalScheduler;
+import com.github.Anon8281.universalScheduler.scheduling.schedulers.TaskScheduler;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.permissions.Permission;
@@ -27,8 +33,19 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
 
     private final @NotNull BindCodeApiImpl bindCodeService;
 
+    private final @NotNull TextComponent prefix;
+
+    private final @NotNull TaskScheduler taskScheduler;
+
     public PlayerQqBind() {
         this.bindCodeService = new BindCodeApiImpl(this);
+        this.prefix = Component.text()
+                .append(Component.text("[").color(NamedTextColor.LIGHT_PURPLE))
+                .append(Component.text("QQ绑定").color(NamedTextColor.GOLD))
+                .append(Component.text("]").color(NamedTextColor.LIGHT_PURPLE))
+                .build();
+
+        this.taskScheduler = UniversalScheduler.getScheduler(this);
     }
 
     @NotNull DatabaseApi getDatabaseApi() throws Exception {
@@ -247,19 +264,6 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
 
         final LinkedList<String> reply = new LinkedList<>();
 
-        // 检查QQ绑定
-        final BindInfo bindInfo;
-
-        try {
-            bindInfo = this.queryByQq(qq);
-        } catch (Exception e) {
-            e.printStackTrace();
-            reply.add(e.toString());
-            return reply;
-        }
-
-        // 已经绑定，不处理
-        if (bindInfo != null && bindInfo.qq() > 0) return null;
 
         // 取出验证码信息
         final BindCodeInfo bindCodeInfo;
@@ -272,7 +276,27 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
         }
 
         if (bindCodeInfo == null) {
-            reply.add("不存在或过期的验证码：%d，请尝试重新连接获取新的验证码！".formatted(code));
+            reply.add("不存在或过期的QQ绑定验证码：%d\n请尝试重新连接获取新的验证码~".formatted(code));
+            return reply;
+        }
+
+        // 检查QQ绑定
+        final BindInfo bindInfo;
+
+        try {
+            bindInfo = this.queryByQq(qq);
+        } catch (Exception e) {
+            e.printStackTrace();
+            reply.add(e.toString());
+            return reply;
+        }
+
+        // 已经绑定，不处理
+        if (bindInfo != null && bindInfo.uuid() != null) {
+            final OfflinePlayer offlinePlayer = this.getServer().getOfflinePlayer(bindInfo.uuid());
+            String name = offlinePlayer.getName();
+            if (name == null) name = offlinePlayer.getUniqueId().toString();
+            reply.add("你的QQ已经绑定了一个正版号，不能再绑定其它正版号\n你的游戏名: %s\n如需解绑，请联系管理员".formatted(name));
             return reply;
         }
 
@@ -312,5 +336,56 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
         final Permission permission = new Permission(name);
         this.getServer().getPluginManager().addPermission(permission);
         return permission;
+    }
+
+    void sendError(@NotNull CommandSender sender, @NotNull String error) {
+        sender.sendMessage(Component.text()
+                .append(this.prefix)
+                .appendSpace()
+                .append(Component.text(error).color(NamedTextColor.RED))
+                .build());
+    }
+
+    void sendWarning(@NotNull CommandSender sender, @NotNull String warning) {
+        sender.sendMessage(Component.text()
+                .append(this.prefix)
+                .appendSpace()
+                .append(Component.text(warning).color(NamedTextColor.YELLOW))
+                .build());
+    }
+
+    void sendInfo(@NotNull CommandSender sender, @NotNull TextComponent info) {
+        sender.sendMessage(Component.text()
+                .append(this.prefix)
+                .appendSpace()
+                .append(info)
+                .build());
+    }
+
+    @NotNull TextComponent buildInfoComponent(@NotNull String name, @NotNull String uuid, @NotNull String qq) {
+
+        return Component.text()
+                .append(Component.text("---- QQ绑定信息 ----").color(NamedTextColor.GREEN))
+                .append(Component.newline())
+
+                .append(Component.text("玩家名: "))
+                .append(Component.text(name).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
+                        .clickEvent(ClickEvent.copyToClipboard(name)))
+                .append(Component.newline())
+
+                .append(Component.text("UUID: "))
+                .append(Component.text(uuid).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
+                        .clickEvent(ClickEvent.copyToClipboard(uuid)))
+                .append(Component.newline())
+
+                .append(Component.text("QQ: "))
+                .append(Component.text(qq).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
+                        .clickEvent(ClickEvent.copyToClipboard(qq)))
+
+                .build();
+    }
+
+    @NotNull TaskScheduler getTaskScheduler() {
+        return this.taskScheduler;
     }
 }
