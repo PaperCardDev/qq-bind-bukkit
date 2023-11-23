@@ -3,9 +3,11 @@ package cn.paper_card.player_qq_bind;
 import cn.paper_card.mc_command.TheMcCommand;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,6 +31,8 @@ class TheCommand extends TheMcCommand.HasSub {
         this.addSubCommand(new Set());
         this.addSubCommand(new Get());
         this.addSubCommand(new ByQq());
+        this.addSubCommand(new Code());
+        this.addSubCommand(new Reload());
     }
 
     @Override
@@ -335,6 +339,93 @@ class TheCommand extends TheMcCommand.HasSub {
                     return list;
                 }
             }
+            return null;
+        }
+    }
+
+    private class Code extends TheMcCommand {
+
+        private final @NotNull Permission permission;
+
+        protected Code() {
+            super("code");
+            this.permission = new Permission(TheCommand.this.permission.getName() + "." + this.getLabel());
+        }
+
+        @Override
+        protected boolean canNotExecute(@NotNull CommandSender commandSender) {
+            return !commandSender.hasPermission(this.permission);
+        }
+
+        @Override
+        public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+
+            if (!(commandSender instanceof final Player player)) {
+                plugin.sendError(commandSender, "该命令只能由玩家来执行");
+                return true;
+            }
+
+            plugin.getTaskScheduler().runTaskAsynchronously(() -> {
+                final QqBindApi.BindInfo bindInfo;
+
+                try {
+                    bindInfo = plugin.queryByUuid(player.getUniqueId());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    plugin.sendError(commandSender, e.toString());
+                    return;
+                }
+
+                if (bindInfo != null) {
+                    plugin.sendWarning(commandSender, "你已经绑定到了QQ[%d]，无需生成绑定验证码，如需改绑，请联系管理员".formatted(bindInfo.qq()));
+                    return;
+                }
+
+                final int code;
+
+                try {
+                    code = plugin.getBindCodeApi().createCode(player.getUniqueId(), player.getName());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    plugin.sendError(commandSender, e.toString());
+                    return;
+                }
+
+                plugin.sendInfo(commandSender, Component.text("QQ绑定验证码：%d，请直接将这个数字发送的QQ主群中，如果QQ机器人在线，会自动处理".formatted(code)).color(NamedTextColor.GREEN));
+            });
+
+            return true;
+        }
+
+        @Override
+        public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            return null;
+        }
+    }
+
+    private class Reload extends TheMcCommand {
+
+        private final @NotNull Permission permission;
+
+        protected Reload() {
+            super("reload");
+            this.permission = plugin.addPermission(TheCommand.this.permission.getName() + "." + this.getLabel());
+        }
+
+        @Override
+        protected boolean canNotExecute(@NotNull CommandSender commandSender) {
+            return !commandSender.hasPermission(this.permission);
+        }
+
+        @Override
+        public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+            plugin.reloadConfig();
+            plugin.sendInfo(commandSender, Component.text("已重载配置").color(NamedTextColor.GREEN));
+            return true;
+        }
+
+        @Override
+        public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
             return null;
         }
     }

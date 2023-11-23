@@ -19,24 +19,25 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
     }
 
     private BindCodeTable table = null;
-    private DatabaseConnection connection = null;
+    private Connection connection = null;
 
     private final @NotNull PlayerQqBind plugin;
 
     private int playerCount = -1;
 
-    private static final long MAX_ALIVE_TIME = 2 * 60 * 1000L;
+    private static final long MAX_ALIVE_TIME = 60 * 1000L;
 
-    private @NotNull DatabaseConnection getConnection() throws Exception {
+    private @NotNull Connection getConnection() throws Exception {
         if (this.connection == null) {
-            this.connection = this.plugin.getDatabaseApi().connectUnimportant();
+            this.connection = this.plugin.getDatabaseApi().getLocalSQLite().connectImportant();
+//            this.connection = this.plugin.getDatabaseApi().connectUnimportant();
         }
         return this.connection;
     }
 
     private @NotNull BindCodeTable getTable() throws Exception {
         if (this.table == null) {
-            this.table = new BindCodeTable(this.getConnection().getConnection());
+            this.table = new BindCodeTable(this.getConnection());
             this.playerCount = this.table.queryCount();
         }
         return this.table;
@@ -64,7 +65,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
             final int updated = t.updateByUuid(info);
             if (updated == 0) {
                 final int inserted = t.insert(info);
-                this.playerCount += inserted;
+                this.playerCount = t.queryCount();
                 if (inserted != 1) throw new Exception("插入了%d条数据！".formatted(inserted));
                 return code;
             }
@@ -84,7 +85,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
             if (size == 1) {
                 final int deleted = t.deleteByCode(code);
 
-                this.playerCount -= deleted;
+                this.playerCount = t.queryCount();
 
                 if (deleted != 1) throw new Exception("删除了%d条数据！".formatted(deleted));
 
@@ -101,12 +102,20 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
     }
 
     @Override
+    public @NotNull List<String> queryPlayerNames() throws Exception {
+        synchronized (this) {
+            final BindCodeTable t = this.getTable();
+            return t.queryNames();
+        }
+    }
+
+    @Override
     public int cleanOutdated() throws Exception {
         final long begin = System.currentTimeMillis() - MAX_ALIVE_TIME;
         synchronized (this) {
             final BindCodeTable t = this.getTable();
             final int deleted = t.deleteTimeBefore(begin);
-            this.playerCount -= deleted;
+            this.playerCount = t.queryCount();
             return deleted;
         }
     }
@@ -116,6 +125,11 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
         synchronized (this) {
             return this.playerCount;
         }
+    }
+
+    @Override
+    public long getMaxAliveTime() {
+        return MAX_ALIVE_TIME;
     }
 
     void close() {
@@ -155,6 +169,8 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
         private final PreparedStatement statementDeleteTimeBefore;
 
+        private final PreparedStatement statementQueryNames;
+
         private final static String NAME = "qq_bind_code";
 
 
@@ -183,6 +199,9 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
                 this.statementQueryPlayerCount = connection.prepareStatement
                         ("SELECT count(*) FROM %s".formatted(NAME));
+
+                this.statementQueryNames = connection.prepareStatement
+                        ("SELECT name FROM %s".formatted(NAME));
 
             } catch (SQLException e) {
                 try {
@@ -294,6 +313,28 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
             final PreparedStatement ps = this.statementDeleteTimeBefore;
             ps.setLong(1, time);
             return ps.executeUpdate();
+        }
+
+        @NotNull List<String> queryNames() throws SQLException {
+            final ResultSet resultSet = this.statementQueryNames.executeQuery();
+
+            final List<String> names = new LinkedList<>();
+            try {
+                while (resultSet.next()) {
+                    final String name = resultSet.getString(1);
+                    names.add(name);
+                }
+            } catch (SQLException e) {
+                try {
+                    resultSet.close();
+                } catch (SQLException ignored) {
+                }
+                throw e;
+            }
+
+            resultSet.close();
+
+            return names;
         }
     }
 }

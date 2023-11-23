@@ -1,7 +1,6 @@
 package cn.paper_card.player_qq_bind;
 
 import cn.paper_card.database.DatabaseApi;
-import cn.paper_card.database.DatabaseConnection;
 import com.github.Anon8281.universalScheduler.UniversalScheduler;
 import com.github.Anon8281.universalScheduler.scheduling.schedulers.TaskScheduler;
 import net.kyori.adventure.text.Component;
@@ -19,6 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
@@ -28,7 +28,7 @@ import java.util.UUID;
 public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
 
     private final @NotNull Object lock = new Object();
-    private DatabaseConnection connection = null;
+    private Connection connection = null;
     private QqBindTable table = null;
 
     private final @NotNull BindCodeApiImpl bindCodeService;
@@ -54,17 +54,16 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
         return api;
     }
 
-    private @NotNull DatabaseConnection getConnection() throws Exception {
+    private @NotNull Connection getConnection() throws Exception {
         if (this.connection == null) {
-            this.connection = this.getDatabaseApi().connectImportant();
+            this.connection = this.getDatabaseApi().getLocalSQLite().connectImportant();
         }
-
         return this.connection;
     }
 
     private @NotNull QqBindTable getTable() throws Exception {
         if (this.table == null) {
-            this.table = new QqBindTable(this.getConnection().getConnection());
+            this.table = new QqBindTable(this.getConnection());
         }
         return this.table;
     }
@@ -248,11 +247,26 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
         return 0;
     }
 
+    private void appendWaitingNamesForMsg(@NotNull StringBuilder s, @NotNull List<String> names) {
+        if (names.isEmpty()) return;
+
+        s.append("\n----\n");
+        s.append("继续等待玩家验证：");
+        for (final String name : names) {
+            s.append(" [%s]".formatted(name));
+        }
+    }
+
     @Override
     public @Nullable List<String> onMainGroupMessage(long qq, @NotNull String message) {
 
         // 没有任何一个账号等待绑定
-        if (this.bindCodeService.getPlayerCount() <= 0) return null;
+        final int codeCount;
+
+        codeCount = this.bindCodeService.getPlayerCount();
+
+        if (codeCount <= 0) return null;
+
 
         // 解析验证码
         final int code;
@@ -263,6 +277,20 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
         }
 
         final LinkedList<String> reply = new LinkedList<>();
+
+        // 清理过期验证码
+        final int deleted;
+        try {
+            deleted = this.bindCodeService.cleanOutdated();
+        } catch (Exception e) {
+            e.printStackTrace();
+            reply.add(e.toString());
+            return reply;
+        }
+
+        if (deleted > 0) {
+            this.getLogger().info("清理了%d个过期的验证码".formatted(deleted));
+        }
 
 
         // 取出验证码信息
@@ -275,8 +303,28 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
             return reply;
         }
 
+        // 查询还有谁
+        final List<String> names;
+
+        try {
+            names = this.bindCodeService.queryPlayerNames();
+        } catch (Exception e) {
+            e.printStackTrace();
+            reply.add(e.toString());
+            return reply;
+        }
+
         if (bindCodeInfo == null) {
-            reply.add("不存在或过期的QQ绑定验证码：%d\n请尝试重新连接获取新的验证码~".formatted(code));
+            final StringBuilder s = new StringBuilder();
+            s.append("不存在或已过期失效的QQ绑定验证码：");
+            s.append(code);
+            s.append('\n');
+
+            s.append("请重新获取新的验证码");
+
+            this.appendWaitingNamesForMsg(s, names);
+
+            reply.add(s.toString());
             return reply;
         }
 
@@ -296,7 +344,14 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
             final OfflinePlayer offlinePlayer = this.getServer().getOfflinePlayer(bindInfo.uuid());
             String name = offlinePlayer.getName();
             if (name == null) name = offlinePlayer.getUniqueId().toString();
-            reply.add("你的QQ已经绑定了一个正版号，不能再绑定其它正版号\n你的游戏名: %s\n如需解绑，请联系管理员".formatted(name));
+
+            final StringBuilder s = new StringBuilder();
+            s.append("你的QQ已经绑定了一个正版号，不能再绑定其它正版号\n");
+            s.append("你的游戏名: %s\n".formatted(name));
+            s.append("如需解绑，请联系管理员");
+            this.appendWaitingNamesForMsg(s, names);
+
+            reply.add(s.toString());
             return reply;
         }
 
@@ -313,21 +368,13 @@ public final class PlayerQqBind extends JavaPlugin implements QqBindApi {
 
         this.getLogger().info("%sQQ绑定 {玩家: %s, QQ: %d}".formatted((added ? "添加" : "更新"), bindCodeInfo.name(), qq));
 
-        reply.add("%sQQ绑定成功\n游戏名：%s\n快连接服务器试试叭~".formatted((added ? "添加" : "更新"), bindCodeInfo.name()));
 
-        // 清理过期验证码
-        final int deleted;
-        try {
-            deleted = this.bindCodeService.cleanOutdated();
-        } catch (Exception e) {
-            e.printStackTrace();
-            reply.add(e.toString());
-            return reply;
-        }
-
-        if (deleted > 0) {
-            this.getLogger().info("清理了%d个过期的验证码".formatted(deleted));
-        }
+        final StringBuilder s = new StringBuilder();
+        s.append(added ? "添加" : "更新");
+        s.append("绑定成功~\n");
+        s.append("QQ游戏名：%s".formatted(bindCodeInfo.name()));
+        this.appendWaitingNamesForMsg(s, names);
+        reply.add(s.toString());
 
         return reply;
     }
