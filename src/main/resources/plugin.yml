@@ -1,12 +1,17 @@
 name: PlayerQqBind
 version: '${project.version}'
-main: cn.paper_card.player_qq_bind.PlayerQqBind
+main: cn.paper_card.player_qq_bind.ThePlugin
 api-version: 1.20
 author: Paper99
 folia-supported: true
+
 depend:
   - Database
 
-
 commands:
   qq-bind:
+    permission: qq-bind.command
+
+permissions:
+  qq-bind.command:
+    default: op

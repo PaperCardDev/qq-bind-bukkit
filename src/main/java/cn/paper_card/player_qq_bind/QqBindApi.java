@@ -1,8 +1,10 @@
 package cn.paper_card.player_qq_bind;
 
+import net.kyori.adventure.text.TextComponent;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
 
 import java.util.List;
 import java.util.UUID;
@@ -10,7 +12,13 @@ import java.util.UUID;
 public interface QqBindApi {
     record BindInfo(
             UUID uuid, // 玩家UUID
-            long qq // 玩家QQ
+
+            String name, // 玩家名
+            long qq, // 玩家QQ
+
+            String remark, // 备注
+
+            long time
     ) {
     }
 
@@ -23,6 +31,9 @@ public interface QqBindApi {
     }
 
     interface BindCodeApi {
+        class DuplicatedCode extends Exception {
+        }
+
         // 生成一个绑定验证码，返回生成的绑定验证码，如果生成的验证码重复，将返回0
         // 如果是同一个玩家，后生成的验证码会使前面的验证码失效
         int createCode(@NotNull UUID uuid, @NotNull String name) throws Exception;
@@ -35,9 +46,9 @@ public interface QqBindApi {
 
         int cleanOutdated() throws Exception;
 
-        int getPlayerCount();
-
         long getMaxAliveTime(); // 最大存活时间
+
+        int getCodeCount();
 
     }
 
@@ -47,26 +58,56 @@ public interface QqBindApi {
 
     interface AutoQqBind {
         // 实现要求：仅仅是获取玩家可能的QQ号码
-        long tryBind(@NotNull UUID uuid, @NotNull String name);
+        long findPossibleQq(@NotNull UUID uuid, @NotNull String name) throws Exception;
     }
+
+    interface BindApi {
+        abstract class AreadyBindException extends Exception {
+            abstract @NotNull BindInfo getBindInfo();
+        }
+
+        abstract class QqHasBeenBindedException extends Exception {
+            abstract @NotNull BindInfo getBindInfo();
+        }
+
+        void addBind(@NotNull BindInfo info) throws Exception;
+
+        boolean deleteByUuidAndQq(@NotNull UUID uuid, long qq) throws Exception;
+
+        @Nullable BindInfo queryByUuid(@NotNull UUID uuid) throws Exception;
+
+        @Nullable BindInfo queryByQq(long qq) throws Exception;
+
+        void clearCache();
+    }
+
+    interface PreLoginRequest {
+        @NotNull String getName();
+
+        @NotNull UUID getUuid();
+
+        @Nullable QqBot getQqBot();
+
+        @Nullable AutoQqBind getAutoQqBind();
+    }
+
+    interface PreLoginResponse {
+        @NotNull AsyncPlayerPreLoginEvent.Result result();
+
+        @Nullable TextComponent kickMessage();
+
+        long qq();
+
+        int bindCode();
+    }
+
+    @NotNull BindApi getBindApi();
 
     @SuppressWarnings("unused")
     @NotNull BindCodeApi getBindCodeApi();
 
-    // 添加或更新玩家的QQ号码，添加返回true，更新返回false。
     @SuppressWarnings("unused")
-    boolean addOrUpdateByUuid(@NotNull UUID uuid, long qq) throws Exception;
-
-    // 根据UUID进行查询
-    @SuppressWarnings("unused")
-    @Nullable BindInfo queryByUuid(@NotNull UUID uuid) throws Exception;
-
-    // 根据QQ查询绑定信息
-    @SuppressWarnings("unused")
-    @Nullable BindInfo queryByQq(long qq) throws Exception;
-
-    @SuppressWarnings("unused")
-    long onPreLoginCheck(@NotNull AsyncPlayerPreLoginEvent event, @Nullable QqBot qqBot, @Nullable AutoQqBind autoQqBind);
+    @NotNull PreLoginResponse handlePreLogin(@NotNull PreLoginRequest request);
 
     @SuppressWarnings("unused")
     @Nullable List<String> onMainGroupMessage(long qq, @NotNull String message);
