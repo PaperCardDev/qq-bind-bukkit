@@ -103,12 +103,14 @@ public interface QqBindApi {
 
     @NotNull BindApi getBindApi();
 
-    @SuppressWarnings("unused")
     @NotNull BindCodeApi getBindCodeApi();
 
-    @SuppressWarnings("unused")
     @NotNull PreLoginResponse handlePreLogin(@NotNull PreLoginRequest request);
 
     @SuppressWarnings("unused")
     @Nullable List<String> onMainGroupMessage(long qq, @NotNull String message);
+
+    void setGroupId(long id);
+
+    long getGroupId();
 }

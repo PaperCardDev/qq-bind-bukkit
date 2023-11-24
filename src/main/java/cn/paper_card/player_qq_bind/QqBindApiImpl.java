@@ -23,6 +23,8 @@ class QqBindApiImpl implements QqBindApi {
 
     private final @NotNull Logger logger;
 
+    private long groupId = 0;
+
     QqBindApiImpl(@NotNull DatabaseApi.MySqlConnection connection1, @NotNull DatabaseApi.MySqlConnection connection2, @NotNull Logger logger) {
         this.bindApi = new BindApiImpl(connection1);
         this.bindCodeApi = new BindCodeApiImpl(connection2);
@@ -41,6 +43,8 @@ class QqBindApiImpl implements QqBindApi {
 
 
     void close() {
+        this.setGroupId(this.getGroupId());
+
         try {
             this.bindApi.close();
         } catch (SQLException e) {
@@ -227,9 +231,15 @@ class QqBindApiImpl implements QqBindApi {
         text.append(Component.text(" (有效时间：%s)".formatted(this.toReadableTime(this.getBindCodeApi().getMaxAliveTime())))
                 .color(NamedTextColor.YELLOW));
 
-        // todo：群号
+        final long gid = this.getGroupId();
         text.append(Component.newline());
-        text.append(Component.text("请在我们的QQ群里直接发送该数字验证码").color(NamedTextColor.GREEN));
+        if (gid > 0) {
+            text.append(Component.text("请在我们的QQ群[").color(NamedTextColor.GREEN));
+            text.append(Component.text(gid).color(NamedTextColor.GOLD).decorate(TextDecoration.BOLD));
+            text.append(Component.text("]里直接发送该数字验证码").color(NamedTextColor.GREEN));
+        } else {
+            text.append(Component.text("请在我们的QQ群里直接发送该数字验证码").color(NamedTextColor.GREEN));
+        }
 
         if (request.getQqBot() != null) {
             text.append(Component.newline());
@@ -238,6 +248,10 @@ class QqBindApiImpl implements QqBindApi {
             text.append(Component.newline());
             text.append(Component.text("当前QQ机器人不在线，请等待机器人修复").color(NamedTextColor.YELLOW));
         }
+
+        text.appendNewline();
+        text.append(Component.text("游戏角色：%s (%s)".formatted(request.getName(), request.getUuid().toString()))
+                .color(NamedTextColor.GRAY));
 
         return new PreLoginResponseImpl(AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST, text.build(), 0, code);
     }
@@ -369,6 +383,16 @@ class QqBindApiImpl implements QqBindApi {
 
         return reply;
 
+    }
+
+    @Override
+    public void setGroupId(long id) {
+        this.groupId = id;
+    }
+
+    @Override
+    public long getGroupId() {
+        return this.groupId;
     }
 
     void appendInfo(@NotNull TextComponent.Builder text, @NotNull QqBindApi.BindInfo info) {
