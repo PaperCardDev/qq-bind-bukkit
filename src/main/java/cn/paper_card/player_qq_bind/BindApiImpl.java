@@ -58,7 +58,7 @@ class BindApiImpl implements QqBindApi.BindApi {
             this.table = null;
             this.connection = null;
 
-            t.close();
+            if (t != null) t.close();
         }
     }
 

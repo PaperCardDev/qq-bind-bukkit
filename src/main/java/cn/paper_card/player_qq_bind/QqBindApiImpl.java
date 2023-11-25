@@ -235,7 +235,7 @@ class QqBindApiImpl implements QqBindApi {
         text.append(Component.newline());
         if (gid > 0) {
             text.append(Component.text("请在我们的QQ群[").color(NamedTextColor.GREEN));
-            text.append(Component.text(gid).color(NamedTextColor.GOLD).decorate(TextDecoration.BOLD));
+            text.append(Component.text(gid).color(NamedTextColor.DARK_AQUA).decorate(TextDecoration.BOLD));
             text.append(Component.text("]里直接发送该数字验证码").color(NamedTextColor.GREEN));
         } else {
             text.append(Component.text("请在我们的QQ群里直接发送该数字验证码").color(NamedTextColor.GREEN));

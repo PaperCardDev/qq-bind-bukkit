@@ -187,26 +187,32 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
     int close() throws SQLException {
         synchronized (this.mySqlConnection) {
+            final BindCodeTable t = this.table;
 
-            final int c;
-            try {
-                c = this.cleanOutdated();
-            } catch (SQLException e) {
-                final BindCodeTable t = this.table;
-                this.table = null;
+            if (t != null) {
+                final int c;
                 try {
-                    t.close();
-                } catch (SQLException ignored) {
+                    c = this.cleanOutdated();
+                } catch (SQLException e) {
+                    this.table = null;
+                    this.connection = null;
+                    try {
+                        t.close();
+                    } catch (SQLException ignored) {
+                    }
+
+                    throw e;
                 }
 
-                throw e;
+                this.table = null;
+                this.connection = null;
+
+                t.close();
+
+                return c;
             }
 
-            final BindCodeTable t = this.table;
-            this.table = null;
-            t.close();
-
-            return c;
+            return -1;
         }
     }
 }
