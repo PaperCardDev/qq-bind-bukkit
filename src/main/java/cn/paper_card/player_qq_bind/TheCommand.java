@@ -155,11 +155,13 @@ class TheCommand extends TheMcCommand.HasSub {
                     p = profile;
                 }
 
+                String remark = plugin.getConfigManager().getRemarkForByAdd();
+                remark = remark.replace("%operator%", commandSender.getName());
 
                 // 添加绑定
                 final QqBindApi.BindInfo info = new QqBindApi.BindInfo(
                         p.uuid(), p.name(), qq,
-                        "add指令添加，%s执行".formatted(commandSender.getName()),
+                        remark.formatted(commandSender.getName()),
                         System.currentTimeMillis()
                 );
 

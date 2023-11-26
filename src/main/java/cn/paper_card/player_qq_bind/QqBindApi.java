@@ -1,10 +1,9 @@
 package cn.paper_card.player_qq_bind;
 
-import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.Component;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
 
 import java.util.List;
 import java.util.UUID;
@@ -94,7 +93,7 @@ public interface QqBindApi {
     interface PreLoginResponse {
         @NotNull AsyncPlayerPreLoginEvent.Result result();
 
-        @Nullable TextComponent kickMessage();
+        @Nullable Component kickMessage();
 
         long qq();
 

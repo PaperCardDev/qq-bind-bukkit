@@ -22,7 +22,7 @@ public class TestQqBindApiImpl {
     public void test1() throws Exception {
         final Logger logger = Logger.getLogger("Test");
 
-        final QqBindApiImpl qqBindApi = new QqBindApiImpl(TestBindApiImpl.getMySqlConnection(), TestBindApiImpl.getMySqlConnection(), logger);
+        final QqBindApiImpl qqBindApi = new QqBindApiImpl(TestBindApiImpl.getMySqlConnection(), TestBindApiImpl.getMySqlConnection(), logger, new ConfigManagerTest());
 
         final String name = "Paper99";
         final UUID uuid = UUID.randomUUID();
@@ -65,7 +65,7 @@ public class TestQqBindApiImpl {
         Assert.assertEquals(AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST, result);
         Assert.assertEquals(0, response.qq());
 
-        final TextComponent textComponent = response.kickMessage();
+        final Component textComponent = response.kickMessage();
         Assert.assertNotNull(textComponent);
 
 
@@ -94,7 +94,7 @@ public class TestQqBindApiImpl {
     public void test3() throws Exception {
         final Logger logger = Logger.getLogger("Test");
 
-        final QqBindApiImpl qqBindApi = new QqBindApiImpl(TestBindApiImpl.getMySqlConnection(), TestBindApiImpl.getMySqlConnection(), logger);
+        final QqBindApiImpl qqBindApi = new QqBindApiImpl(TestBindApiImpl.getMySqlConnection(), TestBindApiImpl.getMySqlConnection(), logger, new ConfigManagerTest());
 
         final String name = "Paper99";
         final UUID uuid = UUID.randomUUID();
@@ -146,7 +146,7 @@ public class TestQqBindApiImpl {
 
         Assert.assertNotSame(AsyncPlayerPreLoginEvent.Result.ALLOWED, result);
 
-        final TextComponent textComponent = response.kickMessage();
+        final Component textComponent = response.kickMessage();
         Assert.assertNotNull(textComponent);
 
         for (Component child : textComponent.children()) {
@@ -177,7 +177,7 @@ public class TestQqBindApiImpl {
     public void test2() throws Exception {
         final Logger logger = Logger.getLogger("Test");
 
-        final QqBindApiImpl qqBindApi = new QqBindApiImpl(TestBindApiImpl.getMySqlConnection(), TestBindApiImpl.getMySqlConnection(), logger);
+        final QqBindApiImpl qqBindApi = new QqBindApiImpl(TestBindApiImpl.getMySqlConnection(), TestBindApiImpl.getMySqlConnection(), logger, new ConfigManagerTest());
 
         final String name = "Paper99";
         final UUID uuid = UUID.randomUUID();
@@ -222,7 +222,7 @@ public class TestQqBindApiImpl {
         Assert.assertEquals(AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST, result);
         Assert.assertEquals(0, response.qq());
 
-        final TextComponent textComponent = response.kickMessage();
+        final Component textComponent = response.kickMessage();
         Assert.assertNotNull(textComponent);
 
 
@@ -270,7 +270,7 @@ public class TestQqBindApiImpl {
     @Ignore
     public void test4() throws Exception {
         final Logger logger = Logger.getLogger("Test");
-        final QqBindApiImpl qqBindApi = new QqBindApiImpl(TestBindApiImpl.getMySqlConnection(), TestBindApiImpl.getMySqlConnection(), logger);
+        final QqBindApiImpl qqBindApi = new QqBindApiImpl(TestBindApiImpl.getMySqlConnection(), TestBindApiImpl.getMySqlConnection(), logger, new ConfigManagerTest());
 
         final LinkedList<Integer> codes = new LinkedList<>();
 
@@ -318,7 +318,7 @@ public class TestQqBindApiImpl {
             Assert.assertEquals(AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST, result);
             Assert.assertEquals(0, response.qq());
 
-            final TextComponent textComponent = response.kickMessage();
+            final Component textComponent = response.kickMessage();
             Assert.assertNotNull(textComponent);
 
 

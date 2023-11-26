@@ -1,11 +1,10 @@
 package cn.paper_card.player_qq_bind;
 
 import cn.paper_card.database.DatabaseApi;
+import de.themoep.minedown.adventure.MineDown;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -23,12 +22,15 @@ class QqBindApiImpl implements QqBindApi {
 
     private final @NotNull Logger logger;
 
+    private final @NotNull ConfigManager configManager;
+
     private long groupId = 0;
 
-    QqBindApiImpl(@NotNull DatabaseApi.MySqlConnection connection1, @NotNull DatabaseApi.MySqlConnection connection2, @NotNull Logger logger) {
+    QqBindApiImpl(@NotNull DatabaseApi.MySqlConnection connection1, @NotNull DatabaseApi.MySqlConnection connection2, @NotNull Logger logger, @NotNull ConfigManager configManager) {
         this.bindApi = new BindApiImpl(connection1);
         this.bindCodeApi = new BindCodeApiImpl(connection2);
         this.logger = logger;
+        this.configManager = configManager;
     }
 
     @Override
@@ -131,6 +133,18 @@ class QqBindApiImpl implements QqBindApi {
         return string;
     }
 
+    private @NotNull Component kickMessageAutoBind(@NotNull PreLoginRequest request, long qq) {
+
+        final String string = this.configManager.getMinedownKickMessageAutoBind();
+
+        final MineDown mineDown = new MineDown(string);
+        mineDown.replace("name", request.getName(),
+                "uuid", request.getUuid().toString(),
+                "qq", "%d".formatted(qq));
+
+        return mineDown.toComponent();
+    }
+
     private @Nullable PreLoginResponse tryAutoBind(@NotNull PreLoginRequest request) {
 
         final AutoQqBind autoQqBind = request.getAutoQqBind();
@@ -148,7 +162,7 @@ class QqBindApiImpl implements QqBindApi {
 
         try {
             this.getBindApi().addBind(new BindInfo(request.getUuid(), request.getName(), qq,
-                    "自动绑定", System.currentTimeMillis()));
+                    this.configManager.getRemarkForAutoBind(), System.currentTimeMillis()));
 
         } catch (Exception e) {
             return this.kickWhenException(e);
@@ -160,33 +174,28 @@ class QqBindApiImpl implements QqBindApi {
         final QqBot qqBot = request.getQqBot();
 
         if (qqBot != null) {
-
-            qqBot.sendAtMessage(qq, """
-                    已为你自动添加了QQ绑定：
-                    游戏名：%s
-                    如果这不是你，请及时联系管理员""".formatted(request.getName()));
+            String msg = this.configManager.getGroupMessageAutoBind();
+            msg = msg.replace("%name%", request.getName());
+            qqBot.sendAtMessage(qq, msg);
         }
 
-        final TextComponent.Builder text = Component.text();
+        return new PreLoginResponseImpl(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, this.kickMessageAutoBind(request, qq), 0);
+    }
 
-        text.append(Component.text("[ QQ绑定 | 自动绑定 ]").color(NamedTextColor.AQUA));
+    private Component kickMessageBindCode(int code, @NotNull PreLoginRequest request) {
 
-        text.appendNewline();
-        text.append(Component.text("已为你自动添加QQ绑定").color(NamedTextColor.GREEN));
+        final long gid = this.getGroupId();
 
-        text.appendNewline();
-        text.append(Component.text("游戏角色：").color(NamedTextColor.GREEN));
-        text.append(Component.text(request.getName()).color(NamedTextColor.LIGHT_PURPLE));
-        text.append(Component.text(" (%s)".formatted(request.getUuid().toString())).color(NamedTextColor.GRAY));
-
-        text.appendNewline();
-        text.append(Component.text("QQ：").color(NamedTextColor.GREEN));
-        text.append(Component.text(qq).color(NamedTextColor.GOLD));
-
-        text.appendNewline();
-        text.append(Component.text("如果这不是你的QQ号，请联系管理员").color(NamedTextColor.YELLOW));
-
-        return new PreLoginResponseImpl(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, text.build(), 0);
+        final String string = this.configManager.getMinedownKickMessageBindCode();
+        final MineDown mineDown = new MineDown(string);
+        mineDown.replace("code", "%d".formatted(code),
+                "validTime", this.toReadableTime(this.getBindCodeApi().getMaxAliveTime()),
+                "group", "%d".formatted(gid),
+                "botState", request.getQqBot() != null ? "在线" : "不在线",
+                "name", request.getName(),
+                "uuid", request.getUuid().toString()
+        );
+        return mineDown.toComponent();
     }
 
     @Override
@@ -222,50 +231,29 @@ class QqBindApiImpl implements QqBindApi {
             return this.kickWhenException(e);
         }
 
-        final TextComponent.Builder text = Component.text();
-        text.append(Component.text("[ QQ绑定 ]").color(NamedTextColor.AQUA));
-
-        text.append(Component.newline());
-        text.append(Component.text("QQ绑定验证码：").color(NamedTextColor.GREEN));
-        text.append(Component.text(code).color(NamedTextColor.GOLD).decorate(TextDecoration.UNDERLINED));
-        text.append(Component.text(" (有效时间：%s)".formatted(this.toReadableTime(this.getBindCodeApi().getMaxAliveTime())))
-                .color(NamedTextColor.YELLOW));
-
-        final long gid = this.getGroupId();
-        text.append(Component.newline());
-        if (gid > 0) {
-            text.append(Component.text("请在我们的QQ群[").color(NamedTextColor.GREEN));
-            text.append(Component.text(gid).color(NamedTextColor.DARK_AQUA).decorate(TextDecoration.BOLD));
-            text.append(Component.text("]里直接发送该数字验证码").color(NamedTextColor.GREEN));
-        } else {
-            text.append(Component.text("请在我们的QQ群里直接发送该数字验证码").color(NamedTextColor.GREEN));
-        }
-
-        if (request.getQqBot() != null) {
-            text.append(Component.newline());
-            text.append(Component.text("当前QQ机器人在线，会自动处理你发送的验证码").color(NamedTextColor.GREEN));
-        } else {
-            text.append(Component.newline());
-            text.append(Component.text("当前QQ机器人不在线，请等待机器人修复").color(NamedTextColor.YELLOW));
-        }
-
-        text.appendNewline();
-        text.append(Component.text("游戏角色：%s (%s)".formatted(request.getName(), request.getUuid().toString()))
-                .color(NamedTextColor.GRAY));
-
-        return new PreLoginResponseImpl(AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST, text.build(), 0, code);
+        return new PreLoginResponseImpl(AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST, this.kickMessageBindCode(code, request), 0, code);
     }
 
 
-    private void appendWaitingNamesForMsg(@NotNull StringBuilder s, @NotNull List<String> names) {
-        if (names.isEmpty()) return;
-
-        s.append("\n----\n");
-        s.append("继续等待玩家验证：");
-        for (final String name : names) {
-            s.append(" [%s]".formatted(name));
+    // 确保列表非空
+    private void appendNames(@NotNull StringBuilder stringBuilder, @NotNull List<String> names, int size) {
+        stringBuilder.append(names.get(0));
+        for (int i = 1; i < size; ++i) {
+            stringBuilder.append('、');
+            stringBuilder.append(names.get(i));
         }
     }
+
+    private void appendWaitingPlayers(@NotNull List<String> names, @NotNull List<String> reply) {
+        final int size = names.size();
+        if (size == 0) return;
+
+        final StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("继续等待玩家验证：");
+        this.appendNames(stringBuilder, names, size);
+        reply.add(stringBuilder.toString());
+    }
+
 
     @Override
     public @Nullable List<String> onMainGroupMessage(long qq, @NotNull String message) {
@@ -323,16 +311,12 @@ class QqBindApiImpl implements QqBindApi {
         }
 
         if (bindCodeInfo == null) {
-            final StringBuilder s = new StringBuilder();
-            s.append("不存在或已过期失效的QQ绑定验证码：");
-            s.append(code);
-            s.append('\n');
+            String msg = this.configManager.getGroupMessageInvalidCode();
+            msg = msg.replace("%code%", "%d".formatted(code));
 
-            s.append("请重新获取新的验证码");
+            reply.add(msg);
+            this.appendWaitingPlayers(names, reply);
 
-            this.appendWaitingNamesForMsg(s, names);
-
-            reply.add(s.toString());
             return reply;
         }
 
@@ -348,16 +332,13 @@ class QqBindApiImpl implements QqBindApi {
                 return reply;
             }
 
-            // 已经绑定，不处理
+            // 已经绑定
             if (bindInfo != null) {
+                String msg = this.configManager.getGroupMessageAlreadyBind();
+                msg = msg.replace("%name%", bindInfo.name());
+                reply.add(msg);
 
-                final StringBuilder s = new StringBuilder();
-                s.append("你的QQ已经绑定了一个正版号，不能再绑定其它正版号\n");
-                s.append("你的游戏名: %s\n".formatted(bindInfo.name()));
-                s.append("如需解绑，请联系管理员");
-                this.appendWaitingNamesForMsg(s, names);
-
-                reply.add(s.toString());
+                this.appendWaitingPlayers(names, reply);
                 return reply;
             }
         }
@@ -366,7 +347,7 @@ class QqBindApiImpl implements QqBindApi {
         // 添加绑定
 
         try {
-            this.getBindApi().addBind(new BindInfo(bindCodeInfo.uuid(), bindCodeInfo.name(), qq, "验证码绑定", System.currentTimeMillis()));
+            this.getBindApi().addBind(new BindInfo(bindCodeInfo.uuid(), bindCodeInfo.name(), qq, this.configManager.getRemarkForBindCode(), System.currentTimeMillis()));
         } catch (Exception e) {
             this.handleException(e);
             reply.add(e.toString());
@@ -375,11 +356,11 @@ class QqBindApiImpl implements QqBindApi {
 
         this.getLogger().info("添加QQ绑定 {玩家: %s, QQ: %d}".formatted(bindCodeInfo.name(), qq));
 
-        final StringBuilder s = new StringBuilder();
-        s.append("添加绑定成功~\n");
-        s.append("游戏名：%s".formatted(bindCodeInfo.name()));
-        this.appendWaitingNamesForMsg(s, names);
-        reply.add(s.toString());
+        String msg = this.configManager.getGroupMessageBindOk();
+        msg = msg.replace("%name%", bindCodeInfo.name());
+
+        reply.add(msg);
+        this.appendWaitingPlayers(names, reply);
 
         return reply;
 
@@ -397,42 +378,22 @@ class QqBindApiImpl implements QqBindApi {
 
     void appendInfo(@NotNull TextComponent.Builder text, @NotNull QqBindApi.BindInfo info) {
 
-        text.append(Component.text("==== QQ绑定信息 ====").color(NamedTextColor.GREEN));
-
-        // 名字
-        text.append(Component.newline());
-        text.append(Component.text("玩家名: ").color(NamedTextColor.GREEN));
-        text.append(Component.text(info.name()).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
-                .clickEvent(ClickEvent.copyToClipboard(info.name())));
-
-
-        // UUID
-        final String uuid = info.uuid().toString();
-        text.append(Component.newline());
-        text.append(Component.text("UUID: ").color(NamedTextColor.GREEN));
-        text.append(Component.text(uuid).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
-                .clickEvent(ClickEvent.copyToClipboard(uuid)));
-
-
-        // QQ
-        final String qq = "%d".formatted(info.qq());
-        text.append(Component.newline());
-        text.append(Component.text("QQ: ").color(NamedTextColor.GREEN));
-        text.append(Component.text(qq).color(NamedTextColor.GREEN).decorate(TextDecoration.UNDERLINED)
-                .clickEvent(ClickEvent.copyToClipboard(qq)));
-
-        // 备注
-        text.appendNewline();
-        text.append(Component.text("备注：").color(NamedTextColor.GREEN));
-        text.append(Component.text(info.remark()).color(NamedTextColor.GREEN));
+        final String minedownBindInfo = this.configManager.getMinedownBindInfo();
+        final MineDown mineDown = new MineDown(minedownBindInfo);
 
         // 时间
         final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy年MM月dd日_HH:mm:ss");
         final String formatted = simpleDateFormat.format(info.time());
-        text.appendNewline();
-        text.append(Component.text("时间：").color(NamedTextColor.GREEN));
-        text.append(Component.text(formatted).color(NamedTextColor.GREEN));
 
+        mineDown.replace(
+                "name", info.name(),
+                "uuid", info.uuid().toString(),
+                "qq", "%d".formatted(info.qq()),
+                "remark", info.remark(),
+                "datetime", formatted
+        );
+
+        text.append(mineDown.toComponent());
     }
 
 }

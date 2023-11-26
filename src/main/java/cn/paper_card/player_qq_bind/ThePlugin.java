@@ -27,15 +27,19 @@ public final class ThePlugin extends JavaPlugin implements Listener {
 
     private final @NotNull TaskScheduler taskScheduler;
 
+    private final @NotNull ConfigManagerImpl configManager;
+
     public ThePlugin() {
 
         @NotNull DatabaseApi databaseApi = this.getDatabaseApi();
 
+        this.configManager = new ConfigManagerImpl(this);
+
         this.qqBindApi = new QqBindApiImpl(
                 databaseApi.getRemoteMySqlDb().getConnectionImportant(),
                 databaseApi.getRemoteMySqlDb().getConnectionUnimportant(),
-                this.getLogger()
-        );
+                this.getLogger(),
+                this.configManager);
 
         this.prefix = Component.text()
                 .append(Component.text("[").color(NamedTextColor.LIGHT_PURPLE))
@@ -67,6 +71,8 @@ public final class ThePlugin extends JavaPlugin implements Listener {
         } else {
             this.getServer().getPluginManager().registerEvents(this, this);
         }
+
+        this.configManager.onEnable();
     }
 
     @Override
@@ -80,6 +86,10 @@ public final class ThePlugin extends JavaPlugin implements Listener {
         final Permission permission = new Permission(name);
         this.getServer().getPluginManager().addPermission(permission);
         return permission;
+    }
+
+    @NotNull ConfigManagerImpl getConfigManager() {
+        return this.configManager;
     }
 
     void sendError(@NotNull CommandSender sender, @NotNull String error) {
@@ -126,7 +136,7 @@ public final class ThePlugin extends JavaPlugin implements Listener {
         final QqBindApi.PreLoginRequest request = this.getQqBindApi().createRequest(event);
         final QqBindApi.PreLoginResponse response = this.getQqBindApi().handlePreLogin(request);
         event.setLoginResult(response.result());
-        final TextComponent msg = response.kickMessage();
+        final Component msg = response.kickMessage();
         if (msg != null) event.kickMessage(msg);
     }
 
