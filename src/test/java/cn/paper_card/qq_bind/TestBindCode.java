@@ -1,6 +1,8 @@
-package cn.paper_card.player_qq_bind;
+package cn.paper_card.qq_bind;
 
-import cn.paper_card.database.DatabaseApi;
+import cn.paper_card.database.api.DatabaseApi;
+import cn.paper_card.qq_bind.api.BindCodeInfo;
+import cn.paper_card.qq_bind.api.exception.DuplicatedCodeException;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -12,9 +14,9 @@ import java.util.UUID;
 public class TestBindCode {
 
     @Test
-    public void test1() throws QqBindApi.BindCodeApi.DuplicatedCode, SQLException {
+    public void test1() throws SQLException, DuplicatedCodeException {
         final DatabaseApi.MySqlConnection mySqlConnection = TestBindApiImpl.getMySqlConnection();
-        final BindCodeApiImpl bindCodeApi = new BindCodeApiImpl(mySqlConnection);
+        final BindCodeServiceImpl bindCodeApi = new BindCodeServiceImpl(mySqlConnection);
 
         // 测试生成
         final int code = bindCodeApi.createCode(new UUID(0, 0), "Test");
@@ -27,7 +29,7 @@ public class TestBindCode {
         }
 
         // 测试取出
-        final QqBindApi.BindCodeInfo info = bindCodeApi.takeByCode(code);
+        final BindCodeInfo info = bindCodeApi.takeByCode(code);
         Assert.assertNotNull(info);
         Assert.assertEquals(new UUID(0, 0), info.uuid());
         Assert.assertEquals("Test", info.name());
@@ -38,9 +40,9 @@ public class TestBindCode {
     }
 
     @Test
-    public void test2() throws SQLException, QqBindApi.BindCodeApi.DuplicatedCode {
+    public void test2() throws SQLException, DuplicatedCodeException {
         final DatabaseApi.MySqlConnection mySqlConnection = TestBindApiImpl.getMySqlConnection();
-        final BindCodeApiImpl bindCodeApi = new BindCodeApiImpl(mySqlConnection);
+        final BindCodeServiceImpl bindCodeApi = new BindCodeServiceImpl(mySqlConnection);
 
 
         final int code1 = bindCodeApi.createCode(new UUID(0, 0), "Test");
@@ -48,10 +50,10 @@ public class TestBindCode {
 
         Assert.assertNotSame(code1, code2);
 
-        final QqBindApi.BindCodeInfo info = bindCodeApi.takeByCode(code1);
+        final BindCodeInfo info = bindCodeApi.takeByCode(code1);
         Assert.assertNull(info);
 
-        final QqBindApi.BindCodeInfo info1 = bindCodeApi.takeByCode(code2);
+        final BindCodeInfo info1 = bindCodeApi.takeByCode(code2);
         Assert.assertNotNull(info1);
         Assert.assertEquals(code2, info1.code());
         Assert.assertEquals("Test2", info1.name());
@@ -65,9 +67,9 @@ public class TestBindCode {
     @Ignore
     public void test3() throws SQLException {
         final DatabaseApi.MySqlConnection mySqlConnection = TestBindApiImpl.getMySqlConnection();
-        final BindCodeApiImpl bindCodeApi = new BindCodeApiImpl(mySqlConnection);
+        final BindCodeServiceImpl bindCodeApi = new BindCodeServiceImpl(mySqlConnection);
 
-        Assert.assertThrows(QqBindApi.BindCodeApi.DuplicatedCode.class, () -> {
+        Assert.assertThrows(DuplicatedCodeException.class, () -> {
             for (int i = 1; i <= 999999; ++i) {
                 final int code = bindCodeApi.createCode(new UUID(0, i), "Test" + i);
                 System.out.println(code);
@@ -79,15 +81,15 @@ public class TestBindCode {
 
     @Test
     @Ignore
-    public void test4() throws QqBindApi.BindCodeApi.DuplicatedCode, SQLException, InterruptedException {
+    public void test4() throws SQLException, DuplicatedCodeException, InterruptedException {
         final DatabaseApi.MySqlConnection mySqlConnection = TestBindApiImpl.getMySqlConnection();
-        final BindCodeApiImpl bindCodeApi = new BindCodeApiImpl(mySqlConnection);
+        final BindCodeServiceImpl bindCodeApi = new BindCodeServiceImpl(mySqlConnection);
 
         final int code = bindCodeApi.createCode(new UUID(0, 0), "Test");
 
         Thread.sleep(bindCodeApi.getMaxAliveTime() + 2000);
 
-        final QqBindApi.BindCodeInfo info = bindCodeApi.takeByCode(code);
+        final BindCodeInfo info = bindCodeApi.takeByCode(code);
         Assert.assertNull(info);
 
         bindCodeApi.close();

@@ -1,6 +1,7 @@
-package cn.paper_card.player_qq_bind;
+package cn.paper_card.qq_bind;
 
-import cn.paper_card.database.DatabaseConnection;
+import cn.paper_card.database.api.Util;
+import cn.paper_card.qq_bind.api.BindInfo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,7 +30,7 @@ class MySqlQqBindTable {
     }
 
     private void create() throws SQLException {
-        DatabaseConnection.createTable(this.connection, """
+        Util.executeSQL(this.connection, """
                 CREATE TABLE IF NOT EXISTS %s (
                     uid1 BIGINT NOT NULL,
                     uid2 BIGINT NOT NULL,
@@ -42,7 +43,7 @@ class MySqlQqBindTable {
     }
 
     void close() throws SQLException {
-        DatabaseConnection.closeAllStatements(this.getClass(), this);
+        Util.closeAllStatements(this.getClass(), this);
     }
 
     private @NotNull PreparedStatement getStatementInsert() throws SQLException {
@@ -77,7 +78,7 @@ class MySqlQqBindTable {
         return this.statementQueryByQq;
     }
 
-    private QqBindApi.BindInfo parseOne0(@NotNull ResultSet resultSet) throws SQLException {
+    private BindInfo parseRow(@NotNull ResultSet resultSet) throws SQLException {
         final long uid1 = resultSet.getLong(1);
         final long uid2 = resultSet.getLong(2);
         final String name = resultSet.getString(3);
@@ -86,16 +87,16 @@ class MySqlQqBindTable {
         final String remark = resultSet.getString(5);
         final long time = resultSet.getLong(6);
 
-        return new QqBindApi.BindInfo(new UUID(uid1, uid2), name, qq, remark, time);
+        return new BindInfo(new UUID(uid1, uid2), name, qq, remark, time);
     }
 
-    private @Nullable QqBindApi.BindInfo parseOne(@NotNull ResultSet resultSet) throws SQLException {
+    private @Nullable BindInfo parseOne(@NotNull ResultSet resultSet) throws SQLException {
 
-        final QqBindApi.BindInfo info;
+        final BindInfo info;
 
         try {
             if (resultSet.next()) {
-                info = this.parseOne0(resultSet);
+                info = this.parseRow(resultSet);
             } else info = null;
 
             if (resultSet.next()) throw new SQLException("不应该还有数据！");
@@ -112,7 +113,7 @@ class MySqlQqBindTable {
         return info;
     }
 
-    int insert(@NotNull QqBindApi.BindInfo info) throws SQLException {
+    int insert(@NotNull BindInfo info) throws SQLException {
         final PreparedStatement ps = this.getStatementInsert();
         ps.setLong(1, info.uuid().getMostSignificantBits());
         ps.setLong(2, info.uuid().getLeastSignificantBits());
@@ -131,7 +132,7 @@ class MySqlQqBindTable {
         return ps.executeUpdate();
     }
 
-    @Nullable QqBindApi.BindInfo queryByUuid(@NotNull UUID uuid) throws SQLException {
+    @Nullable BindInfo queryByUuid(@NotNull UUID uuid) throws SQLException {
         final PreparedStatement ps = this.getStatementQueryByUuid();
         ps.setLong(1, uuid.getMostSignificantBits());
         ps.setLong(2, uuid.getLeastSignificantBits());
@@ -139,7 +140,7 @@ class MySqlQqBindTable {
         return this.parseOne(resultSet);
     }
 
-    @Nullable QqBindApi.BindInfo queryByQq(long qq) throws SQLException {
+    @Nullable BindInfo queryByQq(long qq) throws SQLException {
         final PreparedStatement ps = this.getStatementQueryByQq();
         ps.setLong(1, qq);
         final ResultSet resultSet = ps.executeQuery();

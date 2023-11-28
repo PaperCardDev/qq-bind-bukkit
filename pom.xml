@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>cn.paper_card</groupId>
-    <artifactId>PlayerQqBind</artifactId>
+    <artifactId>QqBind</artifactId>
     <version>1.2</version>
     <packaging>jar</packaging>
 
-    <name>PlayerQqBind</name>
+    <name>QqBind</name>
 
     <properties>
         <java.version>17</java.version>
@@ -44,6 +44,13 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <filters>
                                 <filter>
+                                    <artifact>com.github.PaperCardDev:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.MF</exclude>
+                                    </excludes>
+                                </filter>
+
+                                <filter>
                                     <artifact>cn.paper_card:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/*.MF</exclude>
@@ -63,6 +70,8 @@
                                         <exclude>META-INF/*.MF</exclude>
                                     </excludes>
                                 </filter>
+
+
                             </filters>
                         </configuration>
                     </execution>
@@ -107,10 +116,9 @@
         </dependency>
 
         <dependency>
-            <groupId>cn.paper_card</groupId>
-            <artifactId>Database</artifactId>
+            <groupId>com.github.PaperCardDev</groupId>
+            <artifactId>qq-bind-api</artifactId>
             <version>1.1</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -121,9 +129,16 @@
         </dependency>
 
         <dependency>
-            <groupId>cn.paper_card</groupId>
-            <artifactId>McCommand</artifactId>
+            <groupId>com.github.PaperCardDev</groupId>
+            <artifactId>mc-command</artifactId>
             <version>1.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.PaperCardDev</groupId>
+            <artifactId>database-api</artifactId>
+            <version>1.0</version>
+            <scope>provided</scope>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->

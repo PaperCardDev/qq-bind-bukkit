@@ -1,7 +1,11 @@
-package cn.paper_card.player_qq_bind;
+package cn.paper_card.qq_bind;
 
 import cn.paper_card.MojangProfileApi;
 import cn.paper_card.mc_command.TheMcCommand;
+import cn.paper_card.qq_bind.api.BindInfo;
+import cn.paper_card.qq_bind.api.exception.AlreadyBindException;
+import cn.paper_card.qq_bind.api.exception.DuplicatedCodeException;
+import cn.paper_card.qq_bind.api.exception.QqHasBeenBindException;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -159,20 +163,19 @@ class TheCommand extends TheMcCommand.HasSub {
                 remark = remark.replace("%operator%", commandSender.getName());
 
                 // 添加绑定
-                final QqBindApi.BindInfo info = new QqBindApi.BindInfo(
+                final BindInfo info = new BindInfo(
                         p.uuid(), p.name(), qq,
                         remark.formatted(commandSender.getName()),
                         System.currentTimeMillis()
                 );
 
                 try {
-                    plugin.getQqBindApi().getBindApi().addBind(info);
+                    plugin.getQqBindApi().getBindService().addBind(info);
                 }
 
                 // 已经绑定了
-                catch (QqBindApi.BindApi.AreadyBindException e) {
-
-                    final QqBindApi.BindInfo bindInfo = e.getBindInfo();
+                catch (AlreadyBindException e) {
+                    final BindInfo bindInfo = e.getBindInfo();
                     plugin.sendWarning(commandSender, "玩家 %s 已经绑定了QQ：%d".formatted(
                             p.name(), bindInfo.qq()
                     ));
@@ -181,9 +184,9 @@ class TheCommand extends TheMcCommand.HasSub {
                 }
 
                 // QQ号被绑定了
-                catch (QqBindApi.BindApi.QqHasBeenBindedException e) {
+                catch (QqHasBeenBindException e) {
 
-                    final QqBindApi.BindInfo bindInfo = e.getBindInfo();
+                    final BindInfo bindInfo = e.getBindInfo();
 
                     plugin.sendWarning(commandSender, "QQ[%d] 已经被玩家 %s 绑定".formatted(
                             bindInfo.qq(), bindInfo.name()
@@ -256,9 +259,9 @@ class TheCommand extends TheMcCommand.HasSub {
             }
 
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
-                final QqBindApi.BindInfo info;
+                final BindInfo info;
                 try {
-                    info = plugin.getQqBindApi().getBindApi().queryByUuid(profile.uuid());
+                    info = plugin.getQqBindApi().getBindService().queryByUuid(profile.uuid());
                 } catch (Exception e) {
                     plugin.getQqBindApi().handleException(e);
                     plugin.sendException(commandSender, e);
@@ -272,7 +275,7 @@ class TheCommand extends TheMcCommand.HasSub {
 
                 final boolean deleted;
                 try {
-                    deleted = plugin.getQqBindApi().getBindApi().deleteByUuidAndQq(info.uuid(), info.qq());
+                    deleted = plugin.getQqBindApi().getBindService().removeBind(info.uuid(), info.qq());
                 } catch (Exception e) {
                     plugin.getQqBindApi().handleException(e);
                     plugin.sendException(commandSender, e);
@@ -345,10 +348,10 @@ class TheCommand extends TheMcCommand.HasSub {
 
 
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
-                final QqBindApi.BindInfo info;
+                final BindInfo info;
 
                 try {
-                    info = plugin.getQqBindApi().getBindApi().queryByUuid(profile.uuid());
+                    info = plugin.getQqBindApi().getBindService().queryByUuid(profile.uuid());
                 } catch (Exception e) {
                     plugin.getQqBindApi().handleException(e);
                     plugin.sendException(commandSender, e);
@@ -422,10 +425,10 @@ class TheCommand extends TheMcCommand.HasSub {
             }
 
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
-                final QqBindApi.BindInfo bindInfo;
+                final BindInfo bindInfo;
 
                 try {
-                    bindInfo = plugin.getQqBindApi().getBindApi().queryByQq(qq);
+                    bindInfo = plugin.getQqBindApi().getBindService().queryByQq(qq);
                 } catch (Exception e) {
                     plugin.getQqBindApi().handleException(e);
                     plugin.sendException(commandSender, e);
@@ -483,10 +486,10 @@ class TheCommand extends TheMcCommand.HasSub {
             }
 
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
-                final QqBindApi.BindInfo bindInfo;
+                final BindInfo bindInfo;
 
                 try {
-                    bindInfo = plugin.getQqBindApi().getBindApi().queryByUuid(player.getUniqueId());
+                    bindInfo = plugin.getQqBindApi().getBindService().queryByUuid(player.getUniqueId());
                 } catch (Exception e) {
                     plugin.getQqBindApi().handleException(e);
                     plugin.sendException(commandSender, e);
@@ -501,10 +504,10 @@ class TheCommand extends TheMcCommand.HasSub {
                 final int code;
 
                 try {
-                    code = plugin.getQqBindApi().getBindCodeApi().createCode(player.getUniqueId(), player.getName());
+                    code = plugin.getQqBindApi().getBindCodeService().createCode(player.getUniqueId(), player.getName());
                 }
                 //
-                catch (QqBindApi.BindCodeApi.DuplicatedCode e) {
+                catch (DuplicatedCodeException e) {
                     plugin.sendWarning(commandSender, "此处生成的验证码重复（小概率事件），请重试");
                     return;
                 }
@@ -526,8 +529,8 @@ class TheCommand extends TheMcCommand.HasSub {
                         .hoverEvent(HoverEvent.showText(Component.text("点击复制"))));
 
                 text.append(Component.text("，有效时间：").color(NamedTextColor.GREEN));
-                text.append(Component.text(plugin.getQqBindApi().toReadableTime(plugin.getQqBindApi()
-                        .getBindCodeApi().getMaxAliveTime())).color(NamedTextColor.YELLOW));
+                text.append(Component.text(MyUtil.toReadableTime(plugin.getQqBindApi()
+                        .getBindCodeService().getMaxAliveTime())).color(NamedTextColor.YELLOW));
 
                 text.appendNewline();
                 text.append(Component.text("请直接将这个数字发送到QQ主群中，如果QQ机器人在线，会自动处理").color(NamedTextColor.GREEN));
@@ -561,7 +564,7 @@ class TheCommand extends TheMcCommand.HasSub {
         @Override
         public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
             plugin.reloadConfig();
-            plugin.getQqBindApi().getBindApi().clearCache();
+            plugin.getQqBindApi().getBindService().clearCache();
             plugin.sendInfo(commandSender, Component.text("已重载配置").color(NamedTextColor.GREEN));
             return true;
         }

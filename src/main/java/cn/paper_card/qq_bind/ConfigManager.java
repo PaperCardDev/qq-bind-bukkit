@@ -1,4 +1,4 @@
-package cn.paper_card.player_qq_bind;
+package cn.paper_card.qq_bind;
 
 import org.jetbrains.annotations.NotNull;
 

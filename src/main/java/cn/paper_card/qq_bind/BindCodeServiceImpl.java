@@ -1,6 +1,9 @@
-package cn.paper_card.player_qq_bind;
+package cn.paper_card.qq_bind;
 
-import cn.paper_card.database.DatabaseApi;
+import cn.paper_card.database.api.DatabaseApi;
+import cn.paper_card.qq_bind.api.BindCodeInfo;
+import cn.paper_card.qq_bind.api.BindCodeService;
+import cn.paper_card.qq_bind.api.exception.DuplicatedCodeException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,9 +14,9 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class BindCodeApiImpl implements QqBindApi.BindCodeApi {
+class BindCodeServiceImpl implements BindCodeService {
 
-    BindCodeApiImpl(@NotNull DatabaseApi.MySqlConnection mySqlConnection) {
+    BindCodeServiceImpl(@NotNull DatabaseApi.MySqlConnection mySqlConnection) {
         this.mySqlConnection = mySqlConnection;
     }
 
@@ -29,7 +32,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
 
     private @NotNull BindCodeTable getTable() throws SQLException {
-        final Connection rowConnection = this.mySqlConnection.getRowConnection();
+        final Connection rowConnection = this.mySqlConnection.getRawConnection();
 
         if (this.connection != null && this.connection == rowConnection) {
             return this.table;
@@ -52,7 +55,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
 
     @Override
-    public int createCode(@NotNull UUID uuid, @NotNull String name) throws SQLException, DuplicatedCode {
+    public int createCode(@NotNull UUID uuid, @NotNull String name) throws SQLException, DuplicatedCodeException {
 
         synchronized (this.mySqlConnection) {
             final int code = this.randomCode();
@@ -63,13 +66,13 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
                 // 为了防止验证码重复
                 {
-                    final QqBindApi.BindCodeInfo info = t.queryByCode(code);
+                    final BindCodeInfo info = t.queryByCode(code);
                     this.mySqlConnection.setLastUseTime();
 
-                    if (info != null) throw new DuplicatedCode();
+                    if (info != null) throw new DuplicatedCodeException();
                 }
 
-                final QqBindApi.BindCodeInfo info = new QqBindApi.BindCodeInfo(code, name, uuid, time);
+                final var info = new BindCodeInfo(code, name, uuid, time);
 
                 final int updated = t.updateByUuid(info);
                 this.mySqlConnection.setLastUseTime();
@@ -89,7 +92,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
                 throw new RuntimeException("根据一个UUID更新了%d条数据！".formatted(updated));
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -99,12 +102,12 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
     // 取出一个绑定验证码
     @Override
-    public @Nullable QqBindApi.BindCodeInfo takeByCode(int code) throws SQLException {
+    public @Nullable BindCodeInfo takeByCode(int code) throws SQLException {
         synchronized (this.mySqlConnection) {
             try {
                 final BindCodeTable t = this.getTable();
 
-                final QqBindApi.BindCodeInfo info = t.queryByCode(code);
+                final BindCodeInfo info = t.queryByCode(code);
                 this.mySqlConnection.setLastUseTime();
 
                 if (info == null) return null;
@@ -124,7 +127,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -144,7 +147,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
                 return names;
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -166,7 +169,7 @@ class BindCodeApiImpl implements QqBindApi.BindCodeApi {
 
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;

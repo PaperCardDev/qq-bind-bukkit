@@ -1,6 +1,7 @@
-package cn.paper_card.player_qq_bind;
+package cn.paper_card.qq_bind;
 
-import cn.paper_card.database.DatabaseConnection;
+import cn.paper_card.database.api.Util;
+import cn.paper_card.qq_bind.api.BindCodeInfo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,11 +50,11 @@ class BindCodeTable {
                     PRIMARY KEY(uid1, uid2)
                 )""".formatted(NAME);
 
-        DatabaseConnection.createTable(this.connection, sql2);
+        Util.executeSQL(this.connection, sql2);
     }
 
     void close() throws SQLException {
-        DatabaseConnection.closeAllStatements(this.getClass(), this);
+        Util.closeAllStatements(this.getClass(), this);
     }
 
     private @NotNull PreparedStatement getStatementInsert() throws SQLException {
@@ -116,7 +117,7 @@ class BindCodeTable {
         return this.statementQueryCount;
     }
 
-    int insert(@NotNull QqBindApi.BindCodeInfo info) throws SQLException {
+    int insert(@NotNull BindCodeInfo info) throws SQLException {
         final PreparedStatement ps = this.getStatementInsert();
 
         ps.setInt(1, info.code());
@@ -127,7 +128,7 @@ class BindCodeTable {
         return ps.executeUpdate();
     }
 
-    int updateByUuid(@NotNull QqBindApi.BindCodeInfo info) throws SQLException {
+    int updateByUuid(@NotNull BindCodeInfo info) throws SQLException {
         final PreparedStatement ps = this.getStatementUpdateByUuid();
         // UPDATE %s SET code=?, name=?, time=? WHERE uid1=? AND uid2=?
         ps.setInt(1, info.code());
@@ -138,18 +139,18 @@ class BindCodeTable {
         return ps.executeUpdate();
     }
 
-    private @NotNull QqBindApi.BindCodeInfo parseRow(@NotNull ResultSet resultSet) throws SQLException {
+    private @NotNull BindCodeInfo parseRow(@NotNull ResultSet resultSet) throws SQLException {
         final int code = resultSet.getInt(1);
         final long uid1 = resultSet.getLong(2);
         final long uid2 = resultSet.getLong(3);
         final String name = resultSet.getString(4);
         final long time = resultSet.getLong(5);
-        return new QqBindApi.BindCodeInfo(code, name, new UUID(uid1, uid2), time);
+        return new BindCodeInfo(code, name, new UUID(uid1, uid2), time);
     }
 
-    private @Nullable QqBindApi.BindCodeInfo parseOne(@NotNull ResultSet resultSet) throws SQLException {
+    private @Nullable BindCodeInfo parseOne(@NotNull ResultSet resultSet) throws SQLException {
 
-        final QqBindApi.BindCodeInfo info;
+        final BindCodeInfo info;
         try {
             if (resultSet.next()) {
                 info = this.parseRow(resultSet);
@@ -168,7 +169,7 @@ class BindCodeTable {
         return info;
     }
 
-    @Nullable QqBindApi.BindCodeInfo queryByCode(int code) throws SQLException {
+    @Nullable BindCodeInfo queryByCode(int code) throws SQLException {
         final PreparedStatement ps = this.getStatementQueryByCode();
         ps.setInt(1, code);
         final ResultSet resultSet = ps.executeQuery();

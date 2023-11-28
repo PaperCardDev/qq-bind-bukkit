@@ -1,6 +1,10 @@
-package cn.paper_card.player_qq_bind;
+package cn.paper_card.qq_bind;
 
-import cn.paper_card.database.DatabaseApi;
+import cn.paper_card.database.api.DatabaseApi;
+import cn.paper_card.qq_bind.api.BindInfo;
+import cn.paper_card.qq_bind.api.BindService;
+import cn.paper_card.qq_bind.api.exception.AlreadyBindException;
+import cn.paper_card.qq_bind.api.exception.QqHasBeenBindException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -9,11 +13,11 @@ import java.sql.SQLException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-class BindApiImpl implements QqBindApi.BindApi {
+class BindServiceImpl implements BindService {
 
     record Cached(
             long time,
-            QqBindApi.BindInfo info
+            BindInfo info
     ) {
     }
 
@@ -24,14 +28,14 @@ class BindApiImpl implements QqBindApi.BindApi {
     private final @NotNull ConcurrentHashMap<UUID, Cached> cacheByUuid;
     private final @NotNull ConcurrentHashMap<Long, Cached> cacheByQq;
 
-    BindApiImpl(DatabaseApi.MySqlConnection mySqlConnection) {
+    BindServiceImpl(DatabaseApi.MySqlConnection mySqlConnection) {
         this.mySqlConnection = mySqlConnection;
         this.cacheByUuid = new ConcurrentHashMap<>();
         this.cacheByQq = new ConcurrentHashMap<>();
     }
 
     private @NotNull MySqlQqBindTable getTable() throws SQLException {
-        final Connection rowConnection = this.mySqlConnection.getRowConnection();
+        final Connection rowConnection = this.mySqlConnection.getRawConnection();
 
         if (this.connection != null && this.connection == rowConnection) {
             return this.table;
@@ -63,43 +67,27 @@ class BindApiImpl implements QqBindApi.BindApi {
     }
 
     @Override
-    public void addBind(QqBindApi.@NotNull BindInfo info) throws AreadyBindException, QqHasBeenBindedException, SQLException {
+    public void addBind(@NotNull BindInfo info) throws SQLException, AlreadyBindException, QqHasBeenBindException {
         synchronized (this.mySqlConnection) {
             try {
                 final MySqlQqBindTable t = this.getTable();
 
-                final QqBindApi.BindInfo i1 = this.queryByUuid(info.uuid());
+                final BindInfo i1 = this.queryByUuid(info.uuid());
                 this.mySqlConnection.setLastUseTime();
 
                 if (i1 != null) {
-                    throw new AreadyBindException() {
-                        @Override
-                        @NotNull QqBindApi.BindInfo getBindInfo() {
-                            return i1;
-                        }
-
-                        @Override
-                        public String getMessage() {
-                            return "该UUID[%s]已经绑定了QQ：%d".formatted(info.uuid(), i1.qq());
-                        }
-                    };
+                    throw new AlreadyBindException(i1, "%s (%s) 已经绑定了QQ：%d".formatted(
+                            i1.name(), i1.uuid().toString(), i1.qq()
+                    ));
                 }
 
-                final QqBindApi.BindInfo i2 = this.queryByQq(info.qq());
+                final BindInfo i2 = this.queryByQq(info.qq());
                 this.mySqlConnection.setLastUseTime();
 
                 if (i2 != null) {
-                    throw new QqHasBeenBindedException() {
-                        @Override
-                        @NotNull QqBindApi.BindInfo getBindInfo() {
-                            return i2;
-                        }
-
-                        @Override
-                        public String getMessage() {
-                            return "该QQ[%d]已经被 %s(%s) 绑定".formatted(i2.qq(), i2.name(), i2.uuid().toString());
-                        }
-                    };
+                    throw new QqHasBeenBindException(i2, "QQ[%d] 已经被 %s (%s) 绑定".formatted(
+                            i2.qq(), i2.name(), i2.uuid().toString()
+                    ));
                 }
 
                 final int inserted = t.insert(info);
@@ -113,7 +101,7 @@ class BindApiImpl implements QqBindApi.BindApi {
 
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -122,7 +110,7 @@ class BindApiImpl implements QqBindApi.BindApi {
     }
 
     @Override
-    public boolean deleteByUuidAndQq(@NotNull UUID uuid, long qq) throws SQLException {
+    public boolean removeBind(@NotNull UUID uuid, long qq) throws SQLException {
         synchronized (this.mySqlConnection) {
             final MySqlQqBindTable t;
             try {
@@ -141,7 +129,7 @@ class BindApiImpl implements QqBindApi.BindApi {
                 throw new RuntimeException("删除了%d条数据！".formatted(deleted));
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -149,8 +137,9 @@ class BindApiImpl implements QqBindApi.BindApi {
         }
     }
 
+
     @Override
-    public @Nullable QqBindApi.BindInfo queryByUuid(@NotNull UUID uuid) throws SQLException {
+    public @Nullable BindInfo queryByUuid(@NotNull UUID uuid) throws SQLException {
 
         // 从缓存查询
         final Cached cached = this.cacheByUuid.get(uuid);
@@ -162,7 +151,7 @@ class BindApiImpl implements QqBindApi.BindApi {
             try {
                 final MySqlQqBindTable t = this.getTable();
 
-                final QqBindApi.BindInfo info = t.queryByUuid(uuid);
+                final BindInfo info = t.queryByUuid(uuid);
                 this.mySqlConnection.setLastUseTime();
 
                 // 放入缓存
@@ -171,7 +160,7 @@ class BindApiImpl implements QqBindApi.BindApi {
                 return info;
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -180,7 +169,7 @@ class BindApiImpl implements QqBindApi.BindApi {
     }
 
     @Override
-    public @Nullable QqBindApi.BindInfo queryByQq(long qq) throws SQLException {
+    public @Nullable BindInfo queryByQq(long qq) throws SQLException {
 
         // 从缓存查询
         final Cached cached = this.cacheByQq.get(qq);
@@ -192,7 +181,7 @@ class BindApiImpl implements QqBindApi.BindApi {
             try {
                 final MySqlQqBindTable t = this.getTable();
 
-                final QqBindApi.BindInfo info = t.queryByQq(qq);
+                final BindInfo info = t.queryByQq(qq);
                 this.mySqlConnection.setLastUseTime();
 
                 // 放入缓存
@@ -201,7 +190,7 @@ class BindApiImpl implements QqBindApi.BindApi {
                 return info;
             } catch (SQLException e) {
                 try {
-                    this.mySqlConnection.checkClosedException(e);
+                    this.mySqlConnection.handleException(e);
                 } catch (SQLException ignored) {
                 }
                 throw e;
@@ -209,8 +198,7 @@ class BindApiImpl implements QqBindApi.BindApi {
         }
     }
 
-    @Override
-    public void clearCache() {
+    void clearCache() {
         this.cacheByQq.clear();
         this.cacheByUuid.clear();
     }

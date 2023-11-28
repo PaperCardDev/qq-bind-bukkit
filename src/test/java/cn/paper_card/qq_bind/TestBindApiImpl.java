@@ -1,6 +1,9 @@
-package cn.paper_card.player_qq_bind;
+package cn.paper_card.qq_bind;
 
-import cn.paper_card.database.DatabaseApi;
+import cn.paper_card.database.api.DatabaseApi;
+import cn.paper_card.qq_bind.api.BindInfo;
+import cn.paper_card.qq_bind.api.exception.AlreadyBindException;
+import cn.paper_card.qq_bind.api.exception.QqHasBeenBindException;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Assert;
 import org.junit.Test;
@@ -32,7 +35,7 @@ public class TestBindApiImpl {
             }
 
             @Override
-            public @NotNull Connection getRowConnection() throws SQLException {
+            public @NotNull Connection getRawConnection() throws SQLException {
                 if (this.connection == null) {
                     try {
                         Class.forName("com.mysql.cj.jdbc.Driver");
@@ -48,6 +51,7 @@ public class TestBindApiImpl {
                 return this.connection;
             }
 
+
             @Override
             public int getConnectCount() {
                 return this.count;
@@ -58,11 +62,17 @@ public class TestBindApiImpl {
             }
 
             @Override
-            public void checkClosedException(@NotNull SQLException e) throws SQLException {
+            public void close() {
+
+            }
+
+            @Override
+            public void handleException(@NotNull SQLException e) throws SQLException {
                 final Connection c = this.connection;
                 this.connection = null;
                 if (c != null) c.close();
             }
+
         };
     }
 
@@ -70,42 +80,42 @@ public class TestBindApiImpl {
     @Test
     public void test() throws Exception {
         final DatabaseApi.MySqlConnection mySqlConnection = getMySqlConnection();
-        final BindApiImpl bindApi = new BindApiImpl(mySqlConnection);
+        final BindServiceImpl bindApi = new BindServiceImpl(mySqlConnection);
 
 
         // 测试添加绑定
-        final QqBindApi.BindInfo test = new QqBindApi.BindInfo(new UUID(0, 0), "Test", 114514, "JustTest", System.currentTimeMillis());
+        final BindInfo test = new BindInfo(new UUID(0, 0), "Test", 114514, "JustTest", System.currentTimeMillis());
 
         bindApi.addBind(test);
 
         // 测试查询
         {
-            final QqBindApi.BindInfo info = bindApi.queryByUuid(test.uuid());
+            final BindInfo info = bindApi.queryByUuid(test.uuid());
 //            Assert.assertNotNull(info);
             Assert.assertEquals(test, info);
         }
 
         // 测试查询
         {
-            final QqBindApi.BindInfo i2 = bindApi.queryByQq(test.qq());
+            final BindInfo i2 = bindApi.queryByQq(test.qq());
 //            Assert.assertNotNull(i2);
             Assert.assertEquals(test, i2);
         }
 
 
         // 测试删除
-        final boolean deleted = bindApi.deleteByUuidAndQq(test.uuid(), test.qq());
+        final boolean deleted = bindApi.removeBind(test.uuid(), test.qq());
 
         Assert.assertTrue(deleted);
 
         // 删除后应该查不到
         {
-            final QqBindApi.BindInfo info = bindApi.queryByUuid(test.uuid());
+            final BindInfo info = bindApi.queryByUuid(test.uuid());
             Assert.assertNull(info);
         }
 
         {
-            final QqBindApi.BindInfo info = bindApi.queryByQq(test.qq());
+            final BindInfo info = bindApi.queryByQq(test.qq());
             Assert.assertNull(info);
         }
 
@@ -113,35 +123,35 @@ public class TestBindApiImpl {
     }
 
     @Test
-    public void test2() throws QqBindApi.BindApi.QqHasBeenBindedException, SQLException, QqBindApi.BindApi.AreadyBindException {
+    public void test2() throws AlreadyBindException, SQLException, QqHasBeenBindException {
         final DatabaseApi.MySqlConnection mySqlConnection = getMySqlConnection();
-        final BindApiImpl bindApi = new BindApiImpl(mySqlConnection);
+        final BindServiceImpl bindApi = new BindServiceImpl(mySqlConnection);
 
         // 测试一个UUID重复绑定的情况
-        final QqBindApi.BindInfo test = new QqBindApi.BindInfo(new UUID(0, 0), "Test", 114514, "JustTest", System.currentTimeMillis());
+        final BindInfo test = new BindInfo(new UUID(0, 0), "Test", 114514, "JustTest", System.currentTimeMillis());
 
         bindApi.addBind(test);
 
-        Assert.assertThrows(QqBindApi.BindApi.AreadyBindException.class, () -> bindApi.addBind(new QqBindApi.BindInfo(new UUID(0, 0), "Test", 114515, "JustTest", System.currentTimeMillis())));
+        Assert.assertThrows(AlreadyBindException.class, () -> bindApi.addBind(new BindInfo(new UUID(0, 0), "Test", 114515, "JustTest", System.currentTimeMillis())));
 
-        bindApi.deleteByUuidAndQq(test.uuid(), test.qq());
+        bindApi.removeBind(test.uuid(), test.qq());
     }
 
 
     @Test
     public void test3() throws Exception {
         final DatabaseApi.MySqlConnection mySqlConnection = getMySqlConnection();
-        final BindApiImpl bindApi = new BindApiImpl(mySqlConnection);
+        final BindServiceImpl bindApi = new BindServiceImpl(mySqlConnection);
 
         // 测试一个QQ被多个绑定
-        final QqBindApi.BindInfo test = new QqBindApi.BindInfo(new UUID(0, 0), "Test", 114514, "JustTest", System.currentTimeMillis());
+        final BindInfo test = new BindInfo(new UUID(0, 0), "Test", 114514, "JustTest", System.currentTimeMillis());
 
         bindApi.addBind(test); // 应该成功
 
         // 异常
-        Assert.assertThrows(QqBindApi.BindApi.QqHasBeenBindedException.class, () -> bindApi.addBind(new QqBindApi.BindInfo(new UUID(0, 1), "Test2", test.qq(), "JustTest", System.currentTimeMillis())));
+        Assert.assertThrows(QqHasBeenBindException.class, () -> bindApi.addBind(new BindInfo(new UUID(0, 1), "Test2", test.qq(), "JustTest", System.currentTimeMillis())));
 
         // 删除
-        bindApi.deleteByUuidAndQq(test.uuid(), test.qq());
+        bindApi.removeBind(test.uuid(), test.qq());
     }
 }
