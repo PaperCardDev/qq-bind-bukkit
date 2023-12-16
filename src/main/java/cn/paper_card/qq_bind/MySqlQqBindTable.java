@@ -24,6 +24,8 @@ class MySqlQqBindTable {
 
     private PreparedStatement statementQueryByQq = null;
 
+    private PreparedStatement statementUpdateName = null;
+
     MySqlQqBindTable(@NotNull Connection connection) throws SQLException {
         this.connection = connection;
         this.create();
@@ -52,6 +54,14 @@ class MySqlQqBindTable {
                     ("INSERT INTO %s (uid1, uid2, name, qq, remark, time) VALUES (?, ?, ?, ?, ?, ?)".formatted(NAME));
         }
         return this.statementInsert;
+    }
+
+    private @NotNull PreparedStatement getStatementUpdateName() throws SQLException {
+        if (this.statementUpdateName == null) {
+            this.statementUpdateName = this.connection.prepareStatement
+                    ("UPDATE %s SET name=? WHERE qq=? AND uid1=? AND uid2=? LIMIT 1".formatted(NAME));
+        }
+        return this.statementUpdateName;
     }
 
     private @NotNull PreparedStatement getStatementDeleteByUuidAndQq() throws SQLException {
@@ -145,5 +155,14 @@ class MySqlQqBindTable {
         ps.setLong(1, qq);
         final ResultSet resultSet = ps.executeQuery();
         return this.parseOne(resultSet);
+    }
+
+    int updateName(@NotNull UUID uuid, long qq, @NotNull String name) throws SQLException {
+        final PreparedStatement ps = this.getStatementUpdateName();
+        ps.setString(1, name);
+        ps.setLong(2, qq);
+        ps.setLong(3, uuid.getMostSignificantBits());
+        ps.setLong(4, uuid.getLeastSignificantBits());
+        return ps.executeUpdate();
     }
 }

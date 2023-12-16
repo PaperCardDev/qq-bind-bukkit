@@ -198,6 +198,37 @@ class BindServiceImpl implements BindService {
         }
     }
 
+    @Override
+    public boolean updateName(@NotNull UUID uuid, long qq, @NotNull String newName) throws Exception {
+        synchronized (this.mySqlConnection) {
+            try {
+                final MySqlQqBindTable t = this.getTable();
+
+                final int updated = t.updateName(uuid, qq, newName);
+                this.mySqlConnection.setLastUseTime();
+
+                if (updated == 0) return false;
+
+                if (updated == 1) {
+                    // 处理缓存
+                    this.cacheByUuid.remove(uuid);
+                    this.cacheByQq.remove(qq);
+
+                    return true;
+                }
+
+                // 放入缓存
+                throw new RuntimeException("更新了%d条数据！".formatted(updated));
+            } catch (SQLException e) {
+                try {
+                    this.mySqlConnection.handleException(e);
+                } catch (SQLException ignored) {
+                }
+                throw e;
+            }
+        }
+    }
+
     void clearCache() {
         this.cacheByQq.clear();
         this.cacheByUuid.clear();
