@@ -23,9 +23,28 @@ class QqBindApiImpl implements QqBindApi {
     }
 
     @Override
-    public void addBind(@NotNull UUID uuid, long qq, @NotNull String remark) {
+    public void addBind(@NotNull UUID uuid, long qq, @NotNull String remark) throws Exception {
         // TODO: 尚未支持
-        throw new UnsupportedOperationException("TODO：尚未支持");
+//        throw new UnsupportedOperationException("TODO：尚未支持");
+
+        final PaperClientApi api;
+
+        api = this.plugin.getPaperClientApi();
+
+        final JsonObject json = new JsonObject();
+        json.addProperty("type", "uuid&qq");
+
+        final JsonObject info = new JsonObject();
+        info.addProperty("uuid", uuid.toString());
+        info.addProperty("qq", qq);
+        info.addProperty("remark", remark);
+        json.add("info", info);
+
+        final JsonElement data = api.sendRequest("/qq-bind", json, "POST");
+
+        assert data != null;
+
+        MyUtil.parseBindInfoJson(data.getAsJsonObject());
     }
 
     @Override
