@@ -99,21 +99,7 @@ class MainCommand extends NewMcCommand.HasSub {
                 text.appendSpace();
                 text.append(Component.text("==== QQ绑定信息 ===="));
 
-                text.appendNewline();
-                text.append(Component.text("QQ: "));
-                text.append(Component.text(info.qq()));
-
-                text.appendNewline();
-                text.append(Component.text("UUID: "));
-                text.append(Component.text(info.uuid()));
-
-                text.appendNewline();
-                text.append(Component.text("时间: "));
-                text.append(Component.text(info.time()));
-
-                text.appendNewline();
-                text.append(Component.text("备注: "));
-                text.append(Component.text(info.remark()));
+                MyUtil.appendBindInfo(text, info);
 
                 sender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
