@@ -24,8 +24,6 @@ class QqBindApiImpl implements QqBindApi {
 
     @Override
     public void addBind(@NotNull UUID uuid, long qq, @NotNull String remark) throws Exception {
-        // TODO: 尚未支持
-//        throw new UnsupportedOperationException("TODO：尚未支持");
 
         final PaperClientApi api;
 
@@ -48,9 +46,26 @@ class QqBindApiImpl implements QqBindApi {
     }
 
     @Override
-    public boolean removeBind(@NotNull UUID uuid, long qq) {
-        // TODO: 尚未支持
-        throw new UnsupportedOperationException("TODO：尚未支持");
+    public boolean removeBind(@NotNull UUID uuid, long qq) throws Exception {
+        final PaperClientApi api;
+
+        api = this.plugin.getPaperClientApi();
+
+        final JsonObject json = new JsonObject();
+        json.addProperty("type", "remove");
+
+        final JsonObject info = new JsonObject();
+        info.addProperty("uuid", uuid.toString());
+//        info.addProperty("qq", qq);
+        json.add("info", info);
+
+        final JsonElement data = api.sendRequest("/qq-bind", json, "POST");
+
+        assert data != null;
+
+        MyUtil.parseBindInfoJson(data.getAsJsonObject());
+
+        return true;
     }
 
     private @Nullable BindInfo queryBind(@NotNull String suffix) throws Exception {
