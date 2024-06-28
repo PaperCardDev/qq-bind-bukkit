@@ -26,6 +26,7 @@ class MainCommand extends NewMcCommand.HasSub {
         this.permission = Objects.requireNonNull(plugin.getServer().getPluginManager().getPermission("qq-bind.command"));
 
         this.addSub(new Get());
+        this.addSub(new Qq());
     }
 
     @Override
@@ -40,13 +41,10 @@ class MainCommand extends NewMcCommand.HasSub {
 
     class Get extends NewMcCommand {
 
-        private final @NotNull Permission permSelf;
-        private final @NotNull Permission permOther;
-
+        private final @NotNull Permission permission;
         protected Get() {
             super("get");
-            this.permSelf = plugin.addPermission(MainCommand.this.permission + ".get.self");
-            this.permOther = plugin.addPermission(MainCommand.this.permission + ".get.other");
+            this.permission = plugin.addPermission(MainCommand.this.permission + "."+ this.getLabel());
         }
 
         @Override
@@ -56,7 +54,7 @@ class MainCommand extends NewMcCommand.HasSub {
 
         @Override
         protected boolean canExecute(@NotNull CommandSender commandSender) {
-            return true;
+            return commandSender.hasPermission(this.permission);
         }
 
         @Override
@@ -116,6 +114,84 @@ class MainCommand extends NewMcCommand.HasSub {
                 text.appendNewline();
                 text.append(Component.text("备注: "));
                 text.append(Component.text(info.remark()));
+
+                sender.sendMessage(text.build().color(NamedTextColor.GREEN));
+            });
+
+            return true;
+        }
+
+        @Override
+        public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+            return null;
+        }
+    }
+
+    class Qq extends NewMcCommand {
+
+        private final @NotNull Permission permission;
+
+        protected Qq() {
+            super("qq");
+            this.permission = plugin.addPermission(MainCommand.this.permission + "." + this.getLabel());
+        }
+
+        @Override
+        protected void appendPrefix(TextComponent.@NotNull Builder text) {
+            plugin.appendPrefix(text);
+        }
+
+        @Override
+        protected boolean canExecute(@NotNull CommandSender commandSender) {
+            return commandSender.hasPermission(this.permission);
+        }
+
+        @Override
+        public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+
+            final String argQq = args.length > 0 ? args[0] : null;
+
+            final Sender sd = new Sender(sender);
+
+            if (argQq == null) {
+                sd.error("必须指定参数：QQ号");
+                return true;
+            }
+
+            final long qq;
+
+            try {
+                qq = Long.parseLong(argQq);
+            } catch (NumberFormatException e) {
+                sd.error("%s 不是正确的QQ号！".formatted(argQq));
+                return true;
+            }
+
+
+            plugin.getTaskScheduler().runTaskAsynchronously(() -> {
+                final QqBindApiImpl api = plugin.getQqBindApi();
+
+                final BindInfo info;
+
+                try {
+                    info = api.queryByQq(qq);
+                } catch (Exception e) {
+                    plugin.getSLF4JLogger().error("", e);
+                    sd.exception(e);
+                    return;
+                }
+
+                if (info == null) {
+                    sd.warning("QQ %d 没有被任何玩家绑定！".formatted(qq));
+                    return;
+                }
+
+                final TextComponent.Builder text = Component.text();
+                sd.appendPrefix(text);
+                text.appendSpace();
+                text.append(Component.text("==== QQ绑定信息 ===="));
+
+                MyUtil.appendBindInfo(text, info);
 
                 sender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });

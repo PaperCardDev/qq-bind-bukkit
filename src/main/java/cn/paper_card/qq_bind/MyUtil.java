@@ -2,6 +2,8 @@ package cn.paper_card.qq_bind;
 
 import cn.paper_card.qq_bind.api.BindInfo;
 import com.google.gson.JsonObject;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import org.jetbrains.annotations.NotNull;
 
 class MyUtil {
@@ -12,6 +14,24 @@ class MyUtil {
         final long time = data.get("time").getAsLong();
         final String remark = data.get("remark").getAsString();
         return new BindInfo(uuid, qq, remark, time);
+    }
+
+    static void appendBindInfo(@NotNull TextComponent.Builder text, @NotNull BindInfo info) {
+        text.appendNewline();
+        text.append(Component.text("QQ: "));
+        text.append(Component.text(info.qq()));
+
+        text.appendNewline();
+        text.append(Component.text("UUID: "));
+        text.append(Component.text(info.uuid()));
+
+        text.appendNewline();
+        text.append(Component.text("时间: "));
+        text.append(Component.text(info.time()));
+
+        text.appendNewline();
+        text.append(Component.text("备注: "));
+        text.append(Component.text(info.remark()));
     }
 
     static @NotNull String toReadableTime(long ms) {

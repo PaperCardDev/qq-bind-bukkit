@@ -25,23 +25,22 @@ class QqBindApiImpl implements QqBindApi {
     @Override
     public void addBind(@NotNull UUID uuid, long qq, @NotNull String remark) {
         // TODO: 尚未支持
-        throw  new UnsupportedOperationException("TODO：尚未支持");
+        throw new UnsupportedOperationException("TODO：尚未支持");
     }
 
     @Override
     public boolean removeBind(@NotNull UUID uuid, long qq) {
         // TODO: 尚未支持
-        throw  new UnsupportedOperationException("TODO：尚未支持");
+        throw new UnsupportedOperationException("TODO：尚未支持");
     }
 
-    @Override
-    public @Nullable BindInfo queryByUuid(@NotNull UUID uuid) throws Exception {
+    private @Nullable BindInfo queryBind(@NotNull String suffix) throws Exception {
         final PaperClientApi api;
 
         api = this.plugin.getPaperClientApi();
 
         final URL url;
-        url = new URL(api.getApiBase() + "/qq-bind/uuid/" + uuid);
+        url = new URL(api.getApiBase() + suffix);
 
         final HttpURLConnection connection;
         connection = (HttpURLConnection) url.openConnection();
@@ -70,8 +69,12 @@ class QqBindApiImpl implements QqBindApi {
     }
 
     @Override
-    public @Nullable BindInfo queryByQq(long qq) {
-        // TODO: 尚未支持
-        throw  new UnsupportedOperationException("TODO：尚未支持");
+    public @Nullable BindInfo queryByUuid(@NotNull UUID uuid) throws Exception {
+        return this.queryBind("/qq-bind/uuid/" + uuid);
+    }
+
+    @Override
+    public @Nullable BindInfo queryByQq(long qq) throws Exception {
+        return this.queryBind("/qq-bind/qq/" + qq);
     }
 }
