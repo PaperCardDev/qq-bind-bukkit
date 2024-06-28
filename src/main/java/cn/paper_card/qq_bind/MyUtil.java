@@ -1,8 +1,19 @@
 package cn.paper_card.qq_bind;
 
+import cn.paper_card.qq_bind.api.BindInfo;
+import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
 
 class MyUtil {
+
+    static @NotNull BindInfo parseBindInfoJson(@NotNull JsonObject data) {
+        final long qq = data.get("qq").getAsLong();
+        final String uuid = data.get("uuid").getAsString();
+        final long time = data.get("time").getAsLong();
+        final String remark = data.get("remark").getAsString();
+        return new BindInfo(uuid, qq, remark, time);
+    }
+
     static @NotNull String toReadableTime(long ms) {
         final long minutes = ms / (60 * 1000L);
         ms %= 60 * 1000L;

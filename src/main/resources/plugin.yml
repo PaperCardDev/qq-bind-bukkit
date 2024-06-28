@@ -6,7 +6,7 @@ author: Paper99
 folia-supported: true
 
 depend:
-  - Database
+  - PaperClient
 
 commands:
   qq-bind:
