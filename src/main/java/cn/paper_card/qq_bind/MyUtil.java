@@ -8,6 +8,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 class MyUtil {
 
@@ -26,11 +27,15 @@ class MyUtil {
                 .decorate(TextDecoration.UNDERLINED);
     }
 
-    static void appendBindInfo(@NotNull TextComponent.Builder text, @NotNull BindInfo info) {
+    static void appendBindInfo(@NotNull TextComponent.Builder text, @NotNull BindInfo info, @Nullable String name) {
         text.appendNewline();
         text.append(Component.text("QQ: "));
         final String qq = "%d".formatted(info.qq());
         text.append(copyable(qq));
+
+        text.appendNewline();
+        text.append(Component.text("游戏名: "));
+        text.append(copyable(name != null ? name: "null"));
 
         text.appendNewline();
         text.append(Component.text("UUID: "));

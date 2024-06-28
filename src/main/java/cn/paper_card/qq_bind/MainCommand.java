@@ -14,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 class MainCommand extends NewMcCommand.HasSub {
 
@@ -99,7 +100,7 @@ class MainCommand extends NewMcCommand.HasSub {
                 text.appendSpace();
                 text.append(Component.text("==== QQ绑定信息 ===="));
 
-                MyUtil.appendBindInfo(text, info);
+                MyUtil.appendBindInfo(text, info, offlinePlayer.getName());
 
                 sender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
@@ -168,7 +169,7 @@ class MainCommand extends NewMcCommand.HasSub {
                 }
 
                 if (info == null) {
-                    sd.warning("QQ %d 没有被任何玩家绑定！".formatted(qq));
+                    sd.warning("QQ[%d]没有被任何玩家绑定！".formatted(qq));
                     return;
                 }
 
@@ -177,7 +178,7 @@ class MainCommand extends NewMcCommand.HasSub {
                 text.appendSpace();
                 text.append(Component.text("==== QQ绑定信息 ===="));
 
-                MyUtil.appendBindInfo(text, info);
+                MyUtil.appendBindInfo(text, info, plugin.getServer().getOfflinePlayer(UUID.fromString(info.uuid())).getName());
 
                 sender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
