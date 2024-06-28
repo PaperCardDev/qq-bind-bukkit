@@ -24,7 +24,11 @@ class QqBindApiImpl implements QqBindApi {
 
     @Override
     public void addBind(@NotNull UUID uuid, long qq, @NotNull String remark) throws Exception {
+        throw new Exception("使用addBind2()函数");
+    }
 
+    @Override
+    public @NotNull BindInfo addBind2(@NotNull UUID uuid, long qq, @NotNull String remark) throws Exception {
         final PaperClientApi api;
 
         api = this.plugin.getPaperClientApi();
@@ -40,13 +44,18 @@ class QqBindApiImpl implements QqBindApi {
 
         final JsonElement data = api.sendRequest("/qq-bind", json, "POST");
 
-        assert data != null;
+        if (data == null) throw new Exception("返回data对象为null!");
 
-        MyUtil.parseBindInfoJson(data.getAsJsonObject());
+        return MyUtil.parseBindInfoJson(data.getAsJsonObject());
     }
 
     @Override
     public boolean removeBind(@NotNull UUID uuid, long qq) throws Exception {
+        throw new Exception("使用另外一个函数");
+    }
+
+    @Override
+    public @Nullable BindInfo removeBind(@NotNull UUID uuid) throws Exception {
         final PaperClientApi api;
 
         api = this.plugin.getPaperClientApi();
@@ -61,11 +70,9 @@ class QqBindApiImpl implements QqBindApi {
 
         final JsonElement data = api.sendRequest("/qq-bind", json, "POST");
 
-        assert data != null;
+        if (data == null || data.isJsonNull()) return null;
 
-        MyUtil.parseBindInfoJson(data.getAsJsonObject());
-
-        return true;
+        return MyUtil.parseBindInfoJson(data.getAsJsonObject());
     }
 
     private @Nullable BindInfo queryBind(@NotNull String suffix) throws Exception {

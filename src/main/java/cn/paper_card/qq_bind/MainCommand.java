@@ -244,15 +244,21 @@ class MainCommand extends NewMcCommand.HasSub {
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
                 final QqBindApiImpl api = plugin.getQqBindApi();
 
+                final BindInfo info;
                 try {
-                    api.addBind(offlinePlayer.getUniqueId(), qq, "管理员%s使用指令添加".formatted(sender.getName()));
+                    info = api.addBind2(offlinePlayer.getUniqueId(), qq, "管理员%s使用指令添加".formatted(sender.getName()));
                 } catch (Exception e) {
                     plugin.getSLF4JLogger().error("", e);
                     sd.exception(e);
                     return;
                 }
 
-                sd.info("添加QQ绑定成功 :D");
+                final TextComponent.Builder text = Component.text();
+                sd.appendPrefix(text);
+                text.append(Component.text(" ==== 添加QQ绑定成功:D ===="));
+                MyUtil.appendBindInfo(text, info, offlinePlayer.getName());
+
+                sender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
 
             return true;
@@ -307,15 +313,28 @@ class MainCommand extends NewMcCommand.HasSub {
             plugin.getTaskScheduler().runTaskAsynchronously(() -> {
                 final QqBindApiImpl api = plugin.getQqBindApi();
 
+                final BindInfo info;
                 try {
-                    api.removeBind(offlinePlayer.getUniqueId(), 0);
+                    info = api.removeBind(offlinePlayer.getUniqueId());
                 } catch (Exception e) {
                     plugin.getSLF4JLogger().error("", e);
                     sd.exception(e);
                     return;
                 }
 
-                sd.info("删除QQ绑定成功 :D");
+                final String name = offlinePlayer.getName();
+
+                if (info == null) {
+                    sd.warning("玩家 %s 没有绑定QQ！".formatted(name != null ? name : argPlayer));
+                    return;
+                }
+
+                final TextComponent.Builder text = Component.text();
+                sd.appendPrefix(text);
+                text.append(Component.text(" ==== 删除QQ绑定成功:D ===="));
+                MyUtil.appendBindInfo(text, info, name);
+
+                sender.sendMessage(text.build().color(NamedTextColor.GREEN));
             });
 
             return true;
